@@ -5,8 +5,9 @@ import uuid
 from django.conf import settings
 from django.db import models
 from config import settings
-
+from django.utils import timezone
 class Complaint(models.Model):
+
     class LocationType(models.TextChoices):
             CLASSROOM = "classroom", "Classroom"
             LAB = "lab", "Laboratory"
@@ -18,6 +19,7 @@ class Complaint(models.Model):
             OFFICE = "office", "Office"
             ROAD = "road", "Campus Road"
             OTHER = "other", "Other"
+            
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         ASSIGNED = "assigned", "Assigned"
@@ -51,6 +53,8 @@ class Complaint(models.Model):
         default=uuid.uuid4,
         editable=False,
     )
+
+    complaint_id=models.CharField(max_length=100,null=True,blank=True)
 
     # --------------------------------------------------------
     # Reporter
@@ -189,7 +193,15 @@ class Complaint(models.Model):
             models.Index(fields=["assigned_officer"]),
             models.Index(fields=["created_at"]),
         ]
-
+    def save(self, *args,**kwargs):
+        
+        if not self.complaint_id:
+            prefix=f'CMP-{timezone.now().year}-'
+            last=Complaint.objects.filter(complaint_id__startswith=prefix).order_by('-complaint_id').first()
+            last_number=int(last.complaint_id.split("-")[-1])+1 if last else 1
+            self.complaint_id=f"{prefix}{last_number:06d}"   
+            return super().save(*args,**kwargs)
+    
     def __str__(self):
         return f"{self.title} - {self.status}"
 

@@ -1,5 +1,5 @@
 from rest_framework import generics
-from rest_framework.permissions import AllowAny,IsAuthenticated
+from rest_framework.permissions import AllowAny,IsAuthenticated,IsAdminUser
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken,AccessToken
@@ -12,6 +12,7 @@ from .serializer import (
     OfficerProfileSerializer
 )
 from django.shortcuts import get_object_or_404
+from django.db.models import Q,F,Avg,Max,Min
 
 class RegisterView(generics.CreateAPIView):
     permission_classes=[AllowAny]
@@ -51,3 +52,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
             return  StudentProfileSerializer
         elif self.request.user.role == User.RoleChoices.OFFICER:
             return OfficerProfileSerializer
+
+
+
+
