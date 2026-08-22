@@ -3,9 +3,7 @@ from rest_framework import serializers
 from .models import Complaint,ComplaintImage
 
 from django.db import transaction
-
-
-
+from .complaint_analyze import ai_analyzer
 
 
 class ComplainCreateSerializer(serializers.ModelSerializer):
@@ -32,10 +30,28 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
                images=validated_data.pop('images',[])
                validated_data.pop("reporter", None)
+               title=validated_data.get('title')
+               description=validated_data.get('description')
+               location_type=validated_data.get('location_type')
+               building=validated_data.get('building')
+               room_number=validated_data.get('room_number')
+               landmark=validated_data.get('landmark')
+               result=ai_analyzer(
+                              title=title,
+                              description=description,
+                              location_type=location_type,
+                              building=building,
+                              room_number=room_number,
+                              landmark=landmark,
+
+                                   )
                with transaction.atomic():
+                         
+                         
                          complaint=Complaint.objects.create(
                                    reporter=self.context['request'].user,
-                                   **validated_data
+                                   **validated_data,
+                                   **result
                               )
                          for image in images:
                                    ComplaintImage.objects.create(

@@ -8,59 +8,116 @@ from groq import Groq
 import json
 from dotenv import load_dotenv
 load_dotenv()
-from pydantic import BaseModel,AfterValidator
-from typing import Literal,Annotated
+from pydantic import BaseModel,Field
+from typing import Literal
+
 SYSTEM_PROMPT = """
 You are an AI complaint analysis system for a university campus issue-management platform.
 
-Your task is to analyze a student's complaint using ONLY the provided title and description.
+Your job is to analyze a student's campus complaint and return a structured classification.
 
-Extract and classify the complaint into the required structured fields:
+You will receive:
+- Complaint title
+- Complaint description
+- Location type
+- Building
+- Room number
+- Landmark
 
-1. category:
-   - Identify the main type of campus issue.
-   - Choose the most appropriate category based on the actual problem described.
-   - Do not invent information that is not present.
+Use the title and description as the primary source for understanding the problem.
+Use the location information only as supporting context.
 
-2. priority:
-   - low: minor issue with little immediate impact.
-   - medium: issue affecting normal activities but not causing serious disruption.
-   - high: significant issue affecting students, staff, classes, facilities, or campus operations.
-   - critical: immediate safety risk, major infrastructure failure, severe security issue, or problem requiring urgent intervention.
+## CATEGORY
 
-3. ai_summary:
-   - Write a concise, factual summary of the complaint.
-   - Do not add information that is not supported by the title or description.
+Classify the complaint into exactly ONE of these categories:
 
-4. ai_confidence:
-   - Return a value between 0.0 and 1.0.
-   - Represent how confident you are in your classification.
-   - Use a lower confidence when the complaint is vague, ambiguous, or missing important information.
-   - Do not use high confidence simply because the complaint sounds plausible.
+- electrical: electrical equipment, wiring, lights, fans, switches, power-related issues
+- water: water supply, leakage, taps, toilets, drainage, plumbing-related water problems
+- cleanliness: garbage, dirty rooms, sanitation, unhygienic conditions
+- infrastructure: damaged furniture, walls, doors, ceilings, buildings, physical infrastructure
+- security: theft, suspicious activity, unauthorized access, safety/security incidents
+- internet: WiFi, network, connectivity, internet access
+- classroom: classroom-specific facilities or classroom-related problems that do not better fit another category
+- hostel: hostel-specific problems
+- other: use only when the complaint does not reasonably fit the categories above
 
-Important rules:
-- Do not fabricate missing details.
-- Do not assume facts that are not stated.
-- Prioritize the actual impact and urgency described by the student.
+Do not invent a category outside the allowed categories.
+
+## PRIORITY
+
+Determine priority based on the actual impact and urgency described in the complaint.
+
+- low: minor inconvenience with little impact on normal activities
+- medium: affects normal activities but does not create significant disruption or danger
+- high: significantly affects students, staff, classes, facilities, or campus operations
+- critical: immediate safety/security risk, severe infrastructure failure, major disruption, or an issue requiring immediate intervention
+
+Do not assign critical priority simply because the complaint is inconvenient.
+
+## AI SUMMARY
+
+Create a short, factual summary of the complaint.
+
+Rules:
+- Include the main problem and its impact when explicitly stated.
+- Do not invent facts.
+- Do not add recommendations.
+- Do not repeat unnecessary information.
+- Keep the summary concise.
+
+## AI CONFIDENCE
+
+Return a confidence score between 0.0 and 1.0.
+
+The confidence represents how certain you are about the category and priority classification.
+
+- High confidence: the complaint clearly describes the problem and its classification.
+- Medium confidence: some ambiguity exists.
+- Low confidence: the complaint is vague, incomplete, or could reasonably belong to multiple categories.
+
+Do not give a high confidence score merely because the complaint sounds plausible.
+
+## LOCATION
+
+The location fields are provided separately:
+
+- location_type
+- building
+- room_number
+- landmark
+
+Do not invent or modify these location values.
+
+Use them only to understand the context of the complaint.
+
+## IMPORTANT RULES
+
+- Analyze only the information provided.
+- Never fabricate missing facts.
+- Never invent a category outside the allowed categories.
+- Never change the provided location information.
 - Return only the requested structured output.
 """
 
 class Ai_Structure_Format(BaseModel):
     category: Literal[
         "electrical",
-        'water'
-        'cleanliness'
-        'infrastructure'
-        'security'
-        'internet'
-        'classroom'
-        'hostel'
-        'other'
+        'water',
+        'cleanliness',
+        'infrastructure',
+        'security',
+        'internet',
+        'classroom',
+        'hostel',
+        'other',
     ]
 
     ai_summary:str
     
-    ai_confidence:float
+    ai_confidence:float = Field(
+        ge=0.0,
+        lt=1.0
+    )
     priority : Literal[
        'low',
         'medium',
@@ -70,7 +127,12 @@ class Ai_Structure_Format(BaseModel):
 
 
 
-def ai_analyzer(title:str,description:str)->dict:
+def ai_analyzer(title:str,description:str,
+                location_type:str,
+                building:str,
+                room_number:str,
+                landmark:str,
+)->dict:
 
     client = Groq(
         api_key=os.environ.get('GROQ_API_KEY'),
@@ -82,8 +144,26 @@ def ai_analyzer(title:str,description:str)->dict:
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {
-                "role": "user",
-                "content": f"TITLE:- {title} , DESCRIPTION:- {description}",
+    "role": "user",
+    "content": f"""
+            TITLE:
+            {title}
+
+            DESCRIPTION:
+            {description}
+
+            LOCATION TYPE:
+            {location_type}
+
+            BUILDING:
+            {building}
+
+            ROOM NUMBER:
+            {room_number}
+
+            LANDMARK:
+            {landmark}
+            """
             },
         ],
         response_format={
