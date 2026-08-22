@@ -32,16 +32,16 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
                images=validated_data.pop('images',[])
                validated_data.pop("reporter", None)
-               
-               complaint=Complaint.objects.create(
-                         reporter=self.context['request'].user,
-                         **validated_data
-                    )
-               for image in images:
-                         ComplaintImage.objects.create(
-                              complaint=complaint,
-                              image=image
-                         )
+               with transaction.atomic():
+                         complaint=Complaint.objects.create(
+                                   reporter=self.context['request'].user,
+                                   **validated_data
+                              )
+                         for image in images:
+                                   ComplaintImage.objects.create(
+                                        complaint=complaint,
+                                        image=image
+                                   )
                return complaint
 
 
