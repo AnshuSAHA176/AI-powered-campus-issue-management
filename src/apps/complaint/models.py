@@ -48,6 +48,7 @@ class Complaint(models.Model):
         HOSTEL = "hostel", "Hostel"
         OTHER = "other", "Other"
 
+
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -151,15 +152,6 @@ class Complaint(models.Model):
     # AI analysis
     # --------------------------------------------------------
 
-    ai_category = models.CharField(
-        max_length=100,
-        blank=True,
-    )
-
-    ai_priority = models.CharField(
-        max_length=20,
-        blank=True,
-    )
 
     ai_confidence = models.FloatField(
         null=True,

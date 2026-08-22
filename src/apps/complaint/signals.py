@@ -14,6 +14,8 @@ def previos_data(sender, instance,  **kwargs):
     except Complaint.DoesNotExist:
         instance._old_status=None
 
+
+
 @receiver(post_save,sender=Complaint)
 def statushistorysave(sender, instance, created, **kwargs):
     if not created:
@@ -23,3 +25,4 @@ def statushistorysave(sender, instance, created, **kwargs):
                 old_status=instance._old_status,
                 new_status=instance.status
             )
+
