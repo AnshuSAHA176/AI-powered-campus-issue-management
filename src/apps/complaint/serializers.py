@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from .models import Complaint,ComplaintImage
 
-
+from django.db import transaction
 
 
 
@@ -22,6 +22,7 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
             'landmark',
             'assigned_officer',
             'images',
+            'complaint_id'
 
         ]
         extra_kwargs = {
@@ -29,24 +30,37 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
     'reporter':{"read_only": True}
 }
     def create(self, validated_data):
-        images=validated_data.pop('images', [])
-        complaint=Complaint.objects.create(**validated_data)
-        
-        for image in images:
-                ComplaintImage.objects.create(
-                      
-                      complaint=complaint,image=image
-                      )
-        return complaint
+               images=validated_data.pop('images',[])
+               validated_data.pop("reporter", None)
+               
+               complaint=Complaint.objects.create(
+                         reporter=self.context['request'].user,
+                         **validated_data
+                    )
+               for image in images:
+                         ComplaintImage.objects.create(
+                              complaint=complaint,
+                              image=image
+                         )
+               return complaint
 
+
+
+
+
+
+
+
+         
 class CompliantImageSerializer(serializers.ModelSerializer):
-     title=serializers.CharField(source='complaint.title')
+     
      class Meta:
           model=ComplaintImage
           fields=[
-               'title',
+               
                'image',
                'uploaded_at'
+               
                
           ]
 
@@ -63,6 +77,12 @@ class ComplaintTitleSerializer(serializers.ModelSerializer):
         ]
 
 class ComplaintDetailsSerializer(serializers.ModelSerializer):
+     images=CompliantImageSerializer(
+          many=True,
+          read_only=True,
+          
+     )
+
      class Meta:
           model=Complaint
 
@@ -75,9 +95,20 @@ class ComplaintOwnerUpdateSerializer(serializers.ModelSerializer):
                'title',
                'description',
                'building',
-               'room_number'
+               'room_number',
                 'landmark'
           ]
+
+     def update(self, instance, validated_data):
+          for item , valu in validated_data.items():
+               setattr(instance,item,valu)
+          instance.save()
+          return instance
+
+
+
+
+
 
 class CompliantAssisgedOfficerSerializer(serializers.ModelSerializer):
      class Meta:
@@ -86,3 +117,15 @@ class CompliantAssisgedOfficerSerializer(serializers.ModelSerializer):
                'status',
                'resolution_note'
           ]
+     def validate(self, attrs):
+          if attrs.get("status") == "resolved" and not attrs.get("resolution_note"):
+               raise serializers.ValidationError(
+                    "You must provide resolution_note"
+               )
+
+          return attrs
+     
+               
+
+
+

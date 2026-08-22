@@ -19,7 +19,7 @@ from rest_framework.response import Response
 
 class IsComplaintOwner(BasePermission):
      def has_permission(self, request, view):
-          return request.user.is_authenticted and request.user.role == 'student'
+          return request.user.is_authenticated and request.user.role == 'student'
      def has_object_permission(self, request, view, obj):
           return obj.reporter == request.user
 
