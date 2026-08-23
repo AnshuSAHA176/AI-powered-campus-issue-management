@@ -22,10 +22,16 @@ class CompliantImageSerializer(serializers.ModelSerializer):
           ]
 
 class ComplainCreateSerializer(serializers.ModelSerializer):
-    images=CompliantImageSerializer(
-    many=True,
-    read_only=True
-)
+    image_uploads = serializers.ListField(
+        child=serializers.ImageField(),
+        write_only=True,
+        required=True
+    )
+    images = CompliantImageSerializer(
+        many=True,
+        read_only=True
+    )
+
     assigned_officer = serializers.CharField(
     source="assigned_officer.officer_profile.full_name",
     read_only=True
@@ -42,6 +48,7 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
             'room_number',
             'landmark',
             'assigned_officer',
+            'image_uploads',
             'images',
             'complaint_id',
             
@@ -52,7 +59,7 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
     'reporter':{"read_only": True}
 }
     def create(self, validated_data):
-               images=validated_data.pop('images',[])
+               images=validated_data.pop('image_uploads',[])
                validated_data.pop("reporter", None)
                title=validated_data.get('title')
                description=validated_data.get('description')
