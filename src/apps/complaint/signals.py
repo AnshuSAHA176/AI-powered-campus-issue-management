@@ -26,3 +26,27 @@ def statushistorysave(sender, instance, created, **kwargs):
                 new_status=instance.status
             )
 
+@receiver(post_save,sender= Complaint)
+def update_officer_work_status(sender, instance, **kwargs):
+    ACTIVE_STATUSES = [
+    Complaint.Status.ASSIGNED,
+    Complaint.Status.ACCEPTED,
+    Complaint.Status.INSPECTION,
+    Complaint.Status.IN_PROGRESS,
+    Complaint.Status.REOPENED,
+]
+    if not instance.assigned_officer:
+        return 
+    if instance.status in [
+        Complaint.Status.RESOLVED,
+        Complaint.Status.CLOSED,
+        Complaint.Status.REJECTED,
+    ]:
+        officer_profile=instance.assigned_officer.officer_profile
+        complaint=Complaint.objects.filter(
+            assigned_officer=instance.assigned_officer,
+            status__in=ACTIVE_STATUSES
+        ).exists()
+        if not complaint:
+            officer_profile.in_work=False
+            officer_profile.save(update_fields=["in_work"])

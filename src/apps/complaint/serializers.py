@@ -6,8 +6,31 @@ from django.db import transaction
 from .complaint_analyze import ai_analyzer
 from django.db.models import Count,Q
 from apps.account.models import OfficerProfile
+
+
+
+class CompliantImageSerializer(serializers.ModelSerializer):
+     
+     class Meta:
+          model=ComplaintImage
+          fields=[
+               
+               'image',
+               'uploaded_at'
+               
+               
+          ]
+
 class ComplainCreateSerializer(serializers.ModelSerializer):
-    images=serializers.ListField(child=serializers.ImageField(),write_only=False,required=False)
+    images=CompliantImageSerializer(
+    many=True,
+    read_only=True
+)
+    assigned_officer = serializers.CharField(
+    source="assigned_officer.officer_profile.full_name",
+    read_only=True
+)
+    
     class Meta:
         model=Complaint
         fields=[
@@ -46,24 +69,29 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
                               landmark=landmark,
 
                                    )
+               ACTIVE_STATUSES = [
+                    Complaint.Status.ASSIGNED,
+                    Complaint.Status.ACCEPTED,
+                    Complaint.Status.INSPECTION,
+                    Complaint.Status.IN_PROGRESS,
+                    Complaint.Status.REOPENED,
+                    ]
                officer=OfficerProfile.objects.annotate(
                      active_count=Count(
-                           "assigned_complaints"
+                           "user__assigned_complaints",
+                           filter= Q(user__assigned_complaints__status__in=ACTIVE_STATUSES)
                      ),
-                     filter=Q(
-                           assigned_complaints__status_in=[
-                                 'pending',
-                                 'in_progress'
-                           ]
-                           
-                           
-                     )
+                     
 
-               ).order_by('active_count').first()
+               ).order_by('in_work','active_count').first()
+
                with transaction.atomic():
-                         
-                         
-                         complaint=Complaint.objects.create(
+                         if officer:
+                              validated_data["assigned_officer"] = officer.user
+
+                              officer.in_work = True
+                              officer.save(update_fields=["in_work"])
+                              complaint=Complaint.objects.create(
                                    reporter=self.context['request'].user,
                                    **validated_data,
                                    **result
@@ -83,17 +111,7 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
 
 
          
-class CompliantImageSerializer(serializers.ModelSerializer):
-     
-     class Meta:
-          model=ComplaintImage
-          fields=[
-               
-               'image',
-               'uploaded_at'
-               
-               
-          ]
+
 
 class ComplaintTitleSerializer(serializers.ModelSerializer):
    
@@ -113,6 +131,10 @@ class ComplaintDetailsSerializer(serializers.ModelSerializer):
           many=True,
           read_only=True,
           
+     )
+     assigned_officer=serializers.CharField(
+           source='assigned_officer.officer_profile.full_name',
+           read_only=True
      )
 
      class Meta:

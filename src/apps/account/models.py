@@ -77,7 +77,7 @@ class OfficerProfile(models.Model):
 
     id=models.UUIDField(primary_key=True,default=uuid.uuid4)
 
-    user=models.ForeignKey(User,on_delete=models.CASCADE,related_name="officer_profile")
+    user=models.OneToOneField(User,on_delete=models.CASCADE,related_name="officer_profile")
 
     employ_id=models.CharField(max_length=200,unique=True,null=True,blank=True)
 
@@ -105,4 +105,4 @@ class OfficerProfile(models.Model):
         auto_now=True,
     )
     def __str__(self):
-        return  f"{self.full_name} id-{self.student_id}"
+        return  f"{self.full_name} id-{self.employ_id}"
