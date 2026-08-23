@@ -90,7 +90,7 @@ class OfficerProfile(models.Model):
     designation = models.CharField(
         max_length=100,
     )
-
+    in_work=models.BooleanField(default=False)
     profile_picture = models.ImageField(
         upload_to="profiles/officers/",
         blank=True,

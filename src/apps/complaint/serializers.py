@@ -4,10 +4,10 @@ from .models import Complaint,ComplaintImage
 
 from django.db import transaction
 from .complaint_analyze import ai_analyzer
-
-
+from django.db.models import Count,Q
+from apps.account.models import OfficerProfile
 class ComplainCreateSerializer(serializers.ModelSerializer):
-    images=serializers.ListField(child=serializers.ImageField(),write_only=True,required=False)
+    images=serializers.ListField(child=serializers.ImageField(),write_only=False,required=False)
     class Meta:
         model=Complaint
         fields=[
@@ -20,7 +20,8 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
             'landmark',
             'assigned_officer',
             'images',
-            'complaint_id'
+            'complaint_id',
+            
 
         ]
         extra_kwargs = {
@@ -45,6 +46,20 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
                               landmark=landmark,
 
                                    )
+               officer=OfficerProfile.objects.annotate(
+                     active_count=Count(
+                           "assigned_complaints"
+                     ),
+                     filter=Q(
+                           assigned_complaints__status_in=[
+                                 'pending',
+                                 'in_progress'
+                           ]
+                           
+                           
+                     )
+
+               ).order_by('active_count').first()
                with transaction.atomic():
                          
                          
@@ -89,6 +104,7 @@ class ComplaintTitleSerializer(serializers.ModelSerializer):
              'category',
              'status',
              'building',
+             'priority'
 
         ]
 

@@ -15,6 +15,7 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Q,F,Avg,Max,Min
 
 class RegisterView(generics.CreateAPIView):
+    throttle_scope='register'
     permission_classes=[AllowAny]
     queryset=User.objects.all()
     serializer_class=RegisterSerializer
@@ -22,6 +23,7 @@ class RegisterView(generics.CreateAPIView):
 
 class LoginView(APIView):
     permission_classes=[AllowAny]
+    throttle_scope = 'login'
     def post(self,request):
         serializer=LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

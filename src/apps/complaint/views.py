@@ -15,6 +15,11 @@ from rest_framework import viewsets
 from rest_framework.permissions import BasePermission
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
+from .filters import Filtering
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter,OrderingFilter
+
+from rest_framework.pagination import PageNumberPagination
 
 
 class IsComplaintOwner(BasePermission):
@@ -31,12 +36,25 @@ class IsAssingedOfficer(BasePermission):
           return obj.assigned_officer == request.user
 
 
+
 class ComplaintCreateView(generics.ListCreateAPIView):
     authentication_classes=[
          JWTAuthentication
     ]
     permission_classes=[IsAuthenticated]
-    
+    filterset_class=Filtering
+    search_fields=['title','description']
+    ordering_fields = [
+    "created_at",
+    "updated_at",
+    "priority",
+]    
+    pagination_class=PageNumberPagination
+    pagination_class.page_size=3
+    pagination_class.page_size_query_param="page_size"
+    pagination_class.max_page_size=5
+
+    filter_backends=[DjangoFilterBackend,SearchFilter,OrderingFilter]
 
     def get_serializer_class(self):
         if self.request.method == "POST":
