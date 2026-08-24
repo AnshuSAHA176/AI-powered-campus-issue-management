@@ -3,6 +3,8 @@ from django.db.models.signals import post_save,pre_save,post_delete
 from django.dispatch import receiver
 from .models import Complaint,ComplaintStatusHistory
 from django.core.cache import cache
+from channels.layers import get_channel_layer
+
 @receiver(pre_save, sender=Complaint)
 def previos_data(sender, instance,  **kwargs):
     if not instance.pk:
@@ -57,3 +59,14 @@ def update_officer_work_status(sender, instance, **kwargs):
 @receiver([post_delete,post_save],sender=Complaint)
 def invalidate_dashboard_cache(sender, instance, **kwargs):
      cache.delete(key=f'dashbord:{instance.reporter_id}')
+
+
+@receiver(post_save,sender=Complaint)
+def notification(sender,created,instance,**kwargs):
+    channel_layer = get_channel_layer()
+    if created:
+        if instance.assigned_officer:
+            group_name=f"user_{instance.assigned_officer_id}"
+            event={
+                "type":"assigned_officer_message"
+            }
