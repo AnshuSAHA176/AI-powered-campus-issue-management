@@ -10,10 +10,12 @@ requires-python = ">=3.11"
 dependencies = [
     "django>=5.2.17",
     "django-cloudinary-storage>=0.3.0",
+    "django-filter>=26.1",
     "django-restframework>=0.0.1",
     "djangorestframework>=3.18.0",
     "djangorestframework-simplejwt>=5.5.1",
     "dotenv>=0.9.9",
+    "groq>=1.6.0",
     "pillow>=12.3.0",
     "whitenoise>=6.12.0",
 ]

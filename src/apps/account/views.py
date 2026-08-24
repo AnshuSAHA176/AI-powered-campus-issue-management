@@ -56,5 +56,15 @@ class ProfileView(generics.RetrieveUpdateAPIView):
             return OfficerProfileSerializer
 
 
+# {
+#   "total_issues": 12,
+#   "open_issues": 4,
+#   "resolved_issues": 7,
+#   "pending_issues": 1,
+#   "recent_issues": [],
+#   "issues_by_category": {},
+#   "issues_by_status": {}
+# }
+
 
 
