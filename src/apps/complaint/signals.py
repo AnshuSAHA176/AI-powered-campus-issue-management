@@ -1,8 +1,8 @@
-from django.db.models.signals import post_save,pre_save
+from django.db.models.signals import post_save,pre_save,post_delete
 
 from django.dispatch import receiver
 from .models import Complaint,ComplaintStatusHistory
-
+from django.core.cache import cache
 @receiver(pre_save, sender=Complaint)
 def previos_data(sender, instance,  **kwargs):
     if not instance.pk:
@@ -25,6 +25,8 @@ def statushistorysave(sender, instance, created, **kwargs):
                 old_status=instance._old_status,
                 new_status=instance.status
             )
+
+
 
 @receiver(post_save,sender= Complaint)
 def update_officer_work_status(sender, instance, **kwargs):
@@ -50,3 +52,8 @@ def update_officer_work_status(sender, instance, **kwargs):
         if not complaint:
             officer_profile.in_work=False
             officer_profile.save(update_fields=["in_work"])
+
+
+@receiver([post_delete,post_save],sender=Complaint)
+def invalidate_dashboard_cache(sender, instance, **kwargs):
+     cache.delete(key=f'dashbord:{instance.reporter_id}')

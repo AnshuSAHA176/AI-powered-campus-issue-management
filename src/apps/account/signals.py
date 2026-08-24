@@ -12,4 +12,4 @@ def create_profile(sender,instance,created,**kwargs):
 
     elif instance.role == User.RoleChoices.OFFICER:
         OfficerProfile.objects.create(user=instance)
-
+        

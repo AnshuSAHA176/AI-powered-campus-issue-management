@@ -23,6 +23,7 @@ ALLOWED_HOSTS = []
 
 
 INSTALLED_APPS = [
+    "daphne",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -35,6 +36,7 @@ INSTALLED_APPS = [
     'apps.account',
     'apps.complaint',
     'django_filters',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -144,7 +146,7 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.ScopedRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'register': '2/min',
+        'register': '10/min',
         'login':'5/min'
         
     }
@@ -192,7 +194,14 @@ CACHES = {
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         },
-        "KEY_PREFIX": "career_platform",
-        "TIMEOUT": 300,
-    }
+        
+}}
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
 }
