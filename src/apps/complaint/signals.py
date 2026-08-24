@@ -4,6 +4,7 @@ from django.dispatch import receiver
 from .models import Complaint,ComplaintStatusHistory
 from django.core.cache import cache
 from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 @receiver(pre_save, sender=Complaint)
 def previos_data(sender, instance,  **kwargs):
@@ -68,5 +69,10 @@ def notification(sender,created,instance,**kwargs):
         if instance.assigned_officer:
             group_name=f"user_{instance.assigned_officer_id}"
             event={
-                "type":"assigned_officer_message"
+                "type":"assigned_officer_message",
+                'message':f"Complaied create TITLE:- {instance.title}\nCreated by {instance.reporter.student_profile.full_name}"
             }
+            async_to_sync(channel_layer.group_send)(
+        group_name,
+        event
+    )
