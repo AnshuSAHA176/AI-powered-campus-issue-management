@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 load_dotenv()
 from pydantic import BaseModel,Field
 from typing import Literal
+from .models import Complaint
+from celery import shared_task
+
 
 SYSTEM_PROMPT = """
 You are an AI complaint analysis system for a university campus issue-management platform.
@@ -126,13 +129,8 @@ class Ai_Structure_Format(BaseModel):
     ]
 
 
-
-def ai_analyzer(title:str,description:str,
-                location_type:str,
-                building:str,
-                room_number:str,
-                landmark:str,
-)->dict:
+@shared_task(bind=True, ignore_result=True)
+def ai_analyzer(self,complaint_id)->dict:
 
     client = Groq(
         api_key=os.environ.get('GROQ_API_KEY'),
@@ -178,7 +176,7 @@ def ai_analyzer(title:str,description:str,
     result = Ai_Structure_Format.model_validate(
         json.loads(response.choices[0].message.content or "{}")
         )
-    return result.model_dump()
+    Complaint.objects.create(**result.model_dump())
 
 
 

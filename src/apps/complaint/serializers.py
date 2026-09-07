@@ -67,7 +67,7 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
                building=validated_data.get('building')
                room_number=validated_data.get('room_number')
                landmark=validated_data.get('landmark')
-               result=ai_analyzer(
+               ai_analyzer.delay(
                               title=title,
                               description=description,
                               location_type=location_type,
@@ -101,13 +101,16 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
                               complaint=Complaint.objects.create(
                                    reporter=self.context['request'].user,
                                    **validated_data,
-                                   **result
+                                  
                               )
                          for image in images:
                                    ComplaintImage.objects.create(
                                         complaint=complaint,
                                         image=image
                                    )
+               transaction.on_commit(
+    lambda: ai_analyzer.delay(complaint.complaint_id)
+)
                return complaint
 
 

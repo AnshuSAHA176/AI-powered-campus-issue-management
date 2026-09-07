@@ -30,12 +30,14 @@ class RegisterView(generics.CreateAPIView):
 class LoginView(APIView):
     permission_classes=[AllowAny]
     throttle_scope = 'login'
+
     def post(self,request):
         serializer=LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user=serializer.validated_data['user']
         refresstoken=RefreshToken.for_user(user)
         accesstoken=refresstoken.access_token
+       
         return Response({
             "access":str(accesstoken),
             "refresh":str(refresstoken)
