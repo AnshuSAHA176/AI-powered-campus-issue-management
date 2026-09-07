@@ -64,15 +64,24 @@ def invalidate_dashboard_cache(sender, instance, **kwargs):
 
 @receiver(post_save,sender=Complaint)
 def notification(sender,created,instance,**kwargs):
+    
+    if not created:
+        return
+
+    if not instance.assigned_officer:
+        return
+    
     channel_layer = get_channel_layer()
-    if created:
-        if instance.assigned_officer:
-            group_name=f"user_{instance.assigned_officer_id}"
-            event={
+    group_name=f"user_{instance.assigned_officer_id}"
+    event={
                 "type":"assigned_officer_message",
-                'message':f"Complaied create TITLE:- {instance.title}\nCreated by {instance.reporter.student_profile.full_name}"
+                "message": (
+            f"🔔 New complaint assigned\n"
+            f"Complaint: {instance.title}\n"
+            f"Created by: {instance.reporter.student_profile.full_name}"
+        ),
             }
-            async_to_sync(channel_layer.group_send)(
+    async_to_sync(channel_layer.group_send)(
         group_name,
         event
     )
