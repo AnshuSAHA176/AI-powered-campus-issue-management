@@ -72,6 +72,7 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
                     Complaint.Status.IN_PROGRESS,
                     Complaint.Status.REOPENED,
                     ]
+               
                officer=OfficerProfile.objects.annotate(
                      active_count=Count(
                            "user__assigned_complaints",
@@ -79,7 +80,8 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
                      ),
                      
 
-               ).order_by('in_work','active_count').first()
+               ).order_by('in_work','active_count', 'pk').first()
+
                temp_paths = [ 
                     temp_storage.save(f"temporary/{image.name}", image)for image in images
                     ]
@@ -87,6 +89,7 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
                with transaction.atomic():
                          if officer:
                               validated_data["assigned_officer"] = officer.user
+                              validated_data["status"] = Complaint.Status.ASSIGNED
 
                               officer.in_work = True
                               officer.save(update_fields=["in_work"])
