@@ -23,6 +23,12 @@ class CompliantImageSerializer(serializers.ModelSerializer):
 
 class ComplainCreateSerializer(serializers.ModelSerializer):
     
+    image_uploads = serializers.ListField(
+        child=serializers.ImageField(),
+        write_only=True,
+        required=True
+    )
+
 
     assigned_officer = serializers.CharField(
     source="assigned_officer.officer_profile.full_name",
@@ -40,7 +46,7 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
             'room_number',
             'landmark',
             'assigned_officer',
-            
+            'image_uploads',
             'complaint_id',
             
 

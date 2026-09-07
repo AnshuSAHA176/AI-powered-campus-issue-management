@@ -214,9 +214,7 @@ class ComplaintImage(models.Model):
         related_name="images",
     )
 
-    image = models.ImageField(
-        upload_to="complaints/",
-    )
+    image = models.URLField()
 
     uploaded_at = models.DateTimeField(
         auto_now_add=True,

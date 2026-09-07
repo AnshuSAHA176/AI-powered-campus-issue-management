@@ -1,8 +1,4 @@
-#category
 
-# ai_confidence
-# ai_summary
-# priority
 import os
 from groq import Groq
 import json
@@ -12,6 +8,10 @@ from pydantic import BaseModel,Field
 from typing import Literal
 from .models import Complaint,ComplaintImage
 from celery import shared_task
+from cloudinary.uploader import upload
+
+
+from .storage import temp_storage
 
 
 SYSTEM_PROMPT = """
@@ -193,49 +193,52 @@ def ai_analyzer(self,complaint_id)->dict:
 @shared_task(bind=True, ignore_result=True)
 def images_process(self, complaint_id, temp_paths):
 
+    print("IMAGES TASK STARTED")
+    print("Complaint ID:", complaint_id)
+    print("TEMP PATHS:", temp_paths)
+
     complaint = Complaint.objects.get(
         complaint_id=complaint_id
     )
 
+    print("Complaint found:", complaint.complaint_id)
+
     for path in temp_paths:
 
+        print("Processing path:", path)
+
         try:
-            # Open temporary image
             with temp_storage.open(path, "rb") as image_file:
 
-                # Upload to Cloudinary
+                print("File opened:", path)
+
                 result = upload(
                     image_file,
                     folder="civicai/complaints"
                 )
 
-            # Save Cloudinary URL in database
+                print("Cloudinary uploaded:", result["secure_url"])
+
             ComplaintImage.objects.create(
                 complaint=complaint,
                 image=result["secure_url"]
             )
 
-            # Delete temporary file
+            print("ComplaintImage created")
+
             temp_storage.delete(path)
 
-            print(
-                f"Image uploaded successfully: "
-                f"{result['secure_url']}"
-            )
+            print("Temporary file deleted")
 
         except Exception as exc:
 
-            print(
-                f"Failed to upload image {path}: {exc}"
-            )
-
+            print(f"Failed to upload image {path}: {exc}")
             raise
-
 
 def after_complaint_created(complaint_id,paths):
 
     ai_analyzer.delay(complaint_id)
 
-    images_process.delay(complaint_id=complaint_id,paths=paths)
+    images_process.delay(complaint_id=complaint_id,temp_paths=paths)
 
     
