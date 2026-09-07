@@ -3,12 +3,12 @@ from rest_framework import serializers
 from .models import Complaint,ComplaintImage
 
 from django.db import transaction
-from .complaint_analyze import ai_analyzer
+from .complaint_analyze import after_complaint_created
+
 from django.db.models import Count,Q
 from apps.account.models import OfficerProfile
 
-
-
+from .storage import temp_storage
 class CompliantImageSerializer(serializers.ModelSerializer):
      
      class Meta:
@@ -22,15 +22,7 @@ class CompliantImageSerializer(serializers.ModelSerializer):
           ]
 
 class ComplainCreateSerializer(serializers.ModelSerializer):
-    image_uploads = serializers.ListField(
-        child=serializers.ImageField(),
-        write_only=True,
-        required=True
-    )
-    images = CompliantImageSerializer(
-        many=True,
-        read_only=True
-    )
+    
 
     assigned_officer = serializers.CharField(
     source="assigned_officer.officer_profile.full_name",
@@ -48,8 +40,7 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
             'room_number',
             'landmark',
             'assigned_officer',
-            'image_uploads',
-            'images',
+            
             'complaint_id',
             
 
@@ -67,15 +58,7 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
                building=validated_data.get('building')
                room_number=validated_data.get('room_number')
                landmark=validated_data.get('landmark')
-               ai_analyzer.delay(
-                              title=title,
-                              description=description,
-                              location_type=location_type,
-                              building=building,
-                              room_number=room_number,
-                              landmark=landmark,
-
-                                   )
+               
                ACTIVE_STATUSES = [
                     Complaint.Status.ASSIGNED,
                     Complaint.Status.ACCEPTED,
@@ -91,6 +74,9 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
                      
 
                ).order_by('in_work','active_count').first()
+               temp_paths = [ 
+                    temp_storage.save(f"temporary/{image.name}", image)for image in images
+                    ]
 
                with transaction.atomic():
                          if officer:
@@ -103,14 +89,16 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
                                    **validated_data,
                                   
                               )
-                         for image in images:
-                                   ComplaintImage.objects.create(
-                                        complaint=complaint,
-                                        image=image
-                                   )
-               transaction.on_commit(
-    lambda: ai_analyzer.delay(complaint.complaint_id)
-)
+                        
+                         transaction.on_commit(
+                                   lambda complaint_id=complaint.complaint_id,
+                                             paths=temp_paths:
+                                        after_complaint_created(
+                                             complaint_id,
+                                             paths
+                                        )
+                              )
+
                return complaint
 
 

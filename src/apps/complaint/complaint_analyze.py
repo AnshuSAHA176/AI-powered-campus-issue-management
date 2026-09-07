@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from pydantic import BaseModel,Field
 from typing import Literal
-from .models import Complaint
+from .models import Complaint,ComplaintImage
 from celery import shared_task
 
 
@@ -131,7 +131,7 @@ class Ai_Structure_Format(BaseModel):
 
 @shared_task(bind=True, ignore_result=True)
 def ai_analyzer(self,complaint_id)->dict:
-
+    complaint=Complaint.objects.filter(complaint_id=complaint_id).first()
     client = Groq(
         api_key=os.environ.get('GROQ_API_KEY'),
     
@@ -145,22 +145,21 @@ def ai_analyzer(self,complaint_id)->dict:
     "role": "user",
     "content": f"""
             TITLE:
-            {title}
-
+            {complaint.title}
             DESCRIPTION:
-            {description}
+            {complaint.description}
 
             LOCATION TYPE:
-            {location_type}
+            {complaint.location_type}
 
             BUILDING:
-            {building}
+            {complaint.building}
 
             ROOM NUMBER:
-            {room_number}
+            {complaint.room_number}
 
             LANDMARK:
-            {landmark}
+            {complaint.landmark}
             """
             },
         ],
@@ -176,7 +175,67 @@ def ai_analyzer(self,complaint_id)->dict:
     result = Ai_Structure_Format.model_validate(
         json.loads(response.choices[0].message.content or "{}")
         )
-    Complaint.objects.create(**result.model_dump())
+    complaint.category = result.category
+    complaint.priority = result.priority
+    complaint.ai_summary = result.ai_summary
+    complaint.ai_confidence = result.ai_confidence
+
+    complaint.save(
+        update_fields=[
+            "category",
+            "priority",
+            "ai_summary",
+            "ai_confidence",
+        ]
+    )
 
 
+@shared_task(bind=True, ignore_result=True)
+def images_process(self, complaint_id, temp_paths):
 
+    complaint = Complaint.objects.get(
+        complaint_id=complaint_id
+    )
+
+    for path in temp_paths:
+
+        try:
+            # Open temporary image
+            with temp_storage.open(path, "rb") as image_file:
+
+                # Upload to Cloudinary
+                result = upload(
+                    image_file,
+                    folder="civicai/complaints"
+                )
+
+            # Save Cloudinary URL in database
+            ComplaintImage.objects.create(
+                complaint=complaint,
+                image=result["secure_url"]
+            )
+
+            # Delete temporary file
+            temp_storage.delete(path)
+
+            print(
+                f"Image uploaded successfully: "
+                f"{result['secure_url']}"
+            )
+
+        except Exception as exc:
+
+            print(
+                f"Failed to upload image {path}: {exc}"
+            )
+
+            raise
+
+
+def after_complaint_created(complaint_id,paths):
+
+    ai_analyzer.delay(complaint_id)
+
+    images_process.delay(complaint_id=complaint_id,paths=paths)
+
+    

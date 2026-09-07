@@ -69,6 +69,7 @@ class ComplaintCreateView(generics.ListCreateAPIView):
 
 
 
+
 class ComplaintCURDView(generics.RetrieveUpdateDestroyAPIView):
      authentication_classes=[
           JWTAuthentication

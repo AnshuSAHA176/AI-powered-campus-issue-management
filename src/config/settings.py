@@ -175,8 +175,13 @@ cloudinary.config(
     secure=True,
 )
 
+MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_URL = "/media/"
+from django.core.files.storage import FileSystemStorage
 
+temp_storage = FileSystemStorage(
+    location=BASE_DIR / "temp_uploads"
+)
 STORAGES = {
     "default": {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
