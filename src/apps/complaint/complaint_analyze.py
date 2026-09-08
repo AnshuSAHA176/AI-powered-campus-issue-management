@@ -131,109 +131,87 @@ class Ai_Structure_Format(BaseModel):
 
 @shared_task(bind=True, ignore_result=True)
 def ai_analyzer(self,complaint_id)->dict:
-    complaint=Complaint.objects.filter(complaint_id=complaint_id).first()
-    client = Groq(
-        api_key=os.environ.get('GROQ_API_KEY'),
-    
-        )
-
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-20b",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {
-    "role": "user",
-    "content": f"""
-            TITLE:
-            {complaint.title}
-            DESCRIPTION:
-            {complaint.description}
-
-            LOCATION TYPE:
-            {complaint.location_type}
-
-            BUILDING:
-            {complaint.building}
-
-            ROOM NUMBER:
-            {complaint.room_number}
-
-            LANDMARK:
-            {complaint.landmark}
-            """
-            },
-        ],
-        response_format={
-        "type": "json_schema",
-        "json_schema": {
-            "name": "support_ticket_classification",
-            "schema": Ai_Structure_Format.model_json_schema()
-        }
-    }
-    )
-
-    result = Ai_Structure_Format.model_validate(
-        json.loads(response.choices[0].message.content or "{}")
-        )
-    complaint.category = result.category
-    complaint.priority = result.priority
-    complaint.ai_summary = result.ai_summary
-    complaint.ai_confidence = result.ai_confidence
-
-    complaint.save(
-        update_fields=[
-            "category",
-            "priority",
-            "ai_summary",
-            "ai_confidence",
-        ]
-    )
-
-
-@shared_task(bind=True, ignore_result=True)
-def images_process(self, complaint_id, temp_paths):
-
-    print("IMAGES TASK STARTED")
-    print("Complaint ID:", complaint_id)
-    print("TEMP PATHS:", temp_paths)
-
-    complaint = Complaint.objects.get(
-        complaint_id=complaint_id
-    )
-
-    print("Complaint found:", complaint.complaint_id)
-
-    for path in temp_paths:
-
-        print("Processing path:", path)
-
-        try:
-            with temp_storage.open(path, "rb") as image_file:
-
-                print("File opened:", path)
-
-                result = upload(
-                    image_file,
-                    folder="civicai/complaints"
-                )
-
-                print("Cloudinary uploaded:", result["secure_url"])
-
-            ComplaintImage.objects.create(
-                complaint=complaint,
-                image=result["secure_url"]
+    try:
+        complaint=Complaint.objects.filter(complaint_id=complaint_id).first()
+        client = Groq(
+            api_key=os.environ.get('GROQ_API_KEY'),
+        
             )
 
-            print("ComplaintImage created")
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {
+        "role": "user",
+        "content": f"""
+                TITLE:
+                {complaint.title}
+                DESCRIPTION:
+                {complaint.description}
 
+                LOCATION TYPE:
+                {complaint.location_type}
+
+                BUILDING:
+                {complaint.building}
+
+                ROOM NUMBER:
+                {complaint.room_number}
+
+                LANDMARK:
+                {complaint.landmark}
+                """
+                },
+            ],
+            response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "support_ticket_classification",
+                "schema": Ai_Structure_Format.model_json_schema()
+            }
+        }
+        )
+
+        result = Ai_Structure_Format.model_validate(
+            json.loads(response.choices[0].message.content or "{}")
+            )
+        complaint.category = result.category
+        complaint.priority = result.priority
+        complaint.ai_summary = result.ai_summary
+        complaint.ai_confidence = result.ai_confidence
+
+        complaint.save(
+            update_fields=[
+                "category",
+                "priority",
+                "ai_summary",
+                "ai_confidence",
+            ]
+        )
+    except Exception as exc:
+        raise self.retry(countdown= 2 ** self.request.retries, exc=exc)
+
+
+@shared_task(bind=True, ignore_result=True, max_retries=5)
+def images_process(self, complaint_id, temp_paths):
+    complaint = Complaint.objects.get(complaint_id=complaint_id)
+    remaining = []
+
+    for path in temp_paths:
+        try:
+            with temp_storage.open(path, "rb") as image_file:
+                result = upload(image_file, folder="civicai/complaints")
+            ComplaintImage.objects.create(complaint=complaint, image=result["secure_url"])
             temp_storage.delete(path)
+        except FileNotFoundError:
+            continue 
+        except Exception:
+            remaining.append(path)
 
-            print("Temporary file deleted")
-
-        except Exception as exc:
-
-            print(f"Failed to upload image {path}: {exc}")
-            raise
+    if remaining:
+        raise self.retry(countdown=2 ** self.request.retries, args=[complaint_id, remaining])
+   
 
 def after_complaint_created(complaint_id,paths):
 

@@ -58,12 +58,7 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
                images=validated_data.pop('image_uploads',[])
                validated_data.pop("reporter", None)
-               title=validated_data.get('title')
-               description=validated_data.get('description')
-               location_type=validated_data.get('location_type')
-               building=validated_data.get('building')
-               room_number=validated_data.get('room_number')
-               landmark=validated_data.get('landmark')
+              
                
                ACTIVE_STATUSES = [
                     Complaint.Status.ASSIGNED,

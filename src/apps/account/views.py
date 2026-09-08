@@ -12,7 +12,7 @@ from .serializer import (
     OfficerProfileSerializer
 )
 from django.shortcuts import get_object_or_404
-from django.db.models import Q,F,Avg,Max,Min,Count
+from django.db.models import Q,Count
 from ..complaint.serializers import ComplaintTitleSerializer
 from ..complaint.models import Complaint
 from django.core.cache import cache
