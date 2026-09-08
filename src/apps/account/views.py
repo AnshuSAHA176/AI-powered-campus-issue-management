@@ -89,8 +89,17 @@ class StudentDashBord(APIView):
 
 
             )
-            issues_by_category=complaint.values('category').annotate(count=Count('category'))
-            issues_by_status=complaint.values('status').annotate(count=Count('status'))
+            issues_by_category = list(
+            complaint
+            .values("category")
+            .annotate(count=Count("category"))
+        )
+
+            issues_by_status = list(
+                    complaint
+                    .values("status")
+                    .annotate(count=Count("status"))
+                )
 
             recent_issues=complaint.order_by('-created_at')[:6]
             data = {
