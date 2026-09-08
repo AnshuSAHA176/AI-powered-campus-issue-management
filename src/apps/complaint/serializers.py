@@ -22,22 +22,21 @@ class CompliantImageSerializer(serializers.ModelSerializer):
           ]
 
 class ComplainCreateSerializer(serializers.ModelSerializer):
-    
+
     image_uploads = serializers.ListField(
         child=serializers.ImageField(),
         write_only=True,
         required=True
     )
 
-
     assigned_officer = serializers.CharField(
-    source="assigned_officer.officer_profile.full_name",
-    read_only=True
-)
-    
+        source="assigned_officer.officer_profile.full_name",
+        read_only=True
+    )
+
     class Meta:
-        model=Complaint
-        fields=[
+        model = Complaint
+        fields = [
             'reporter',
             'title',
             'description',
@@ -48,63 +47,65 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
             'assigned_officer',
             'image_uploads',
             'complaint_id',
-            
-
         ]
         extra_kwargs = {
-    "assigned_officer": {"read_only": True},
-    'reporter':{"read_only": True}
-}
+            'reporter': {"read_only": True},
+        }
+
     def create(self, validated_data):
-               images=validated_data.pop('image_uploads',[])
-               validated_data.pop("reporter", None)
-              
-               
-               ACTIVE_STATUSES = [
-                    Complaint.Status.ASSIGNED,
-                    Complaint.Status.ACCEPTED,
-                    Complaint.Status.INSPECTION,
-                    Complaint.Status.IN_PROGRESS,
-                    Complaint.Status.REOPENED,
-                    ]
-               
-               officer=OfficerProfile.objects.annotate(
-                     active_count=Count(
-                           "user__assigned_complaints",
-                           filter= Q(user__assigned_complaints__status__in=ACTIVE_STATUSES)
-                     ),
-                     
+        images = validated_data.pop('image_uploads', [])
+        validated_data.pop("reporter", None)
 
-               ).order_by('in_work','active_count', 'pk').first()
+        ACTIVE_STATUSES = [
+            Complaint.Status.ASSIGNED,
+            Complaint.Status.ACCEPTED,
+            Complaint.Status.INSPECTION,
+            Complaint.Status.IN_PROGRESS,
+            Complaint.Status.REOPENED,
+        ]
 
-               temp_paths = [ 
-                    temp_storage.save(f"temporary/{image.name}", image)for image in images
-                    ]
+        temp_paths = [
+            temp_storage.save(f"temporary/{image.name}", image)
+            for image in images
+        ]
 
-               with transaction.atomic():
-                         if officer:
-                              validated_data["assigned_officer"] = officer.user
-                              validated_data["status"] = Complaint.Status.ASSIGNED
+        try:
+            with transaction.atomic():
+                officer = (
+                    OfficerProfile.objects
+                    .select_for_update(skip_locked=True)
+                    .annotate(
+                        active_count=Count(
+                            "user__assigned_complaints",
+                            filter=Q(user__assigned_complaints__status__in=ACTIVE_STATUSES)
+                        ),
+                    )
+                    .order_by('in_work', 'active_count', 'pk')
+                    .first()
+                )
 
-                              officer.in_work = True
-                              officer.save(update_fields=["in_work"])
-                              complaint=Complaint.objects.create(
-                                   reporter=self.context['request'].user,
-                                   **validated_data,
-                                  
-                              )
-                        
-                         transaction.on_commit(
-                                   lambda complaint_id=complaint.complaint_id,
-                                             paths=temp_paths:
-                                        after_complaint_created(
-                                             complaint_id,
-                                             paths
-                                        )
-                              )
+                if officer:
+                    validated_data["assigned_officer"] = officer.user
+                    validated_data["status"] = Complaint.Status.ASSIGNED
+                    officer.in_work = True
+                    officer.save(update_fields=["in_work"])
 
-               return complaint
+                complaint = Complaint.objects.create(
+                    reporter=self.context['request'].user,
+                    **validated_data,
+                )
 
+                transaction.on_commit(
+                    lambda complaint_id=complaint.complaint_id, paths=temp_paths:
+                        after_complaint_created(complaint_id, paths)
+                )
+        except Exception:
+            # complaint was never created (or txn rolled back) — clean up orphaned temp files
+            for path in temp_paths:
+                temp_storage.delete(path)
+            raise
+
+        return complaint
 
 
 
