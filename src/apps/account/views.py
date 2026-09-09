@@ -12,12 +12,15 @@ from .serializer import (
     OfficerProfileSerializer
 )
 from django.shortcuts import get_object_or_404
-from django.db.models import Q,Count
+from django.db.models import Q,Count,When,Value,Case,IntegerField
+
 from ..complaint.serializers import ComplaintTitleSerializer
 from ..complaint.models import Complaint
 from django.core.cache import cache
 from rest_framework.permissions import BasePermission
-
+from ..complaint.serializers import ComplaintTitleSerializer
+from django.utils import timezone
+from datetime import timedelta
 
 class IsOfficer(BasePermission):
     def has_permission(self, request, view):
@@ -168,7 +171,43 @@ class OfficerDashbordView(APIView):
                 filter=Q(priority="critical")
             ), 
             )
-        
+        issues_by_status = list(complaint.values('status').annotate(count=Count('status')))
+       
+        issues_by_priority = list(complaint.values('priority').annotate(count = Count('priority')))
+
+        issues_by_category = list(complaint.values('category').annotate(count = Count('category')))
+        priority_order = Case(
+            When(priority="critical", then=Value(1)),
+            When(priority="high", then=Value(2)),
+            When(priority="medium", then=Value(3)),
+            When(priority="low", then=Value(4)),
+            default=Value(5),
+            output_field=IntegerField(),
+        )
+        needs_attention = (
+            complaint.filter(status__in=ACTIVE_STATUSES)
+            .annotate(priority_order=priority_order)
+            .order_by('priority_order','created_at')
+                           )[:4]
+        recent_complaints = complaint.order_by('-created_at')[:4]
+        now= timezone.now()
+        week_start=now - timedelta(days=now.weekday())
+        week_start = week_start.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0
+        )
+        month_start = now.replace(
+                day=1,
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0
+            )
+        resolved_this_week = complaint.filter(Q(created_at__gte=week_start)&Q(status=Complaint.Status.RESOLVED)).count()
+        resolved_this_month = complaint.filter(Q(created_at__gte=month_start)&Q(status=Complaint.Status.RESOLVED)).count()
+
 
 
         return Response(
@@ -185,34 +224,19 @@ class OfficerDashbordView(APIView):
         "critical": summery['critical']
     },
 
-    "issues_by_status": [
-        {
-            "status": "assigned",
-            "count": 2
-        }
-    ],
+    "issues_by_status": issues_by_status,
 
-    "issues_by_priority": [
-        {
-            "priority": "critical",
-            "count": 1
-        }
-    ],
+    "issues_by_priority": issues_by_priority,
 
-    "issues_by_category": [
-        {
-            "category": "electrical",
-            "count": 5
-        }
-    ],
+    "issues_by_category": issues_by_category,
 
-    "needs_attention": [],
+    "needs_attention":ComplaintTitleSerializer(needs_attention,many=True).data,
 
-    "recent_complaints": [],
+    "recent_complaints": ComplaintTitleSerializer(recent_complaints,many=True).data,
 
     "performance": {
-        "resolved_this_week": 8,
-        "resolved_this_month": 24
+        "resolved_this_week": resolved_this_week,
+        "resolved_this_month": resolved_this_month
     }
 }
         )
