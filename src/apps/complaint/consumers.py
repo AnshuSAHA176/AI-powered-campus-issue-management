@@ -16,7 +16,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data = None, bytes_data = None):
         await self.send(f'hello {text_data}')
 
-    async def assigned_officer_message(self, event):
+    async def officer_notification(self, event):
         await self.send(text_data=event['message'])
     async def unassiged_officer_message(self,event):
         await self.send(text_data=event['message'])

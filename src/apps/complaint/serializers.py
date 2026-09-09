@@ -4,7 +4,9 @@ from .models import Complaint,ComplaintImage
 
 from django.db import transaction
 from .complaint_analyze import after_complaint_created
+from channels.layers import get_channel_layer
 
+from asgiref.sync import async_to_sync
 from django.db.models import Count,Q
 from apps.account.models import OfficerProfile
 from django.utils import timezone
@@ -160,6 +162,39 @@ class ComplaintOwnerUpdateSerializer(serializers.ModelSerializer):
           for item , valu in validated_data.items():
                setattr(instance,item,valu)
           instance.save()
+          old_data = {
+        "title": instance.title,
+        "description": instance.description,
+        "building": instance.building,
+        "room_number": instance.room_number,
+        "landmark": instance.landmark,
+    }
+          changed_fields=[ 
+              field for field,valu in old_data.items()
+                if field in validated_data and getattr(instance,field) != valu
+                ]
+          if changed_fields != []:
+              group_name=f'user_{instance.assigned_officer}'
+              event = {
+        "type": "officer_notification",
+        "notification_type": "complaint.details_updated",
+        "message": (
+            f"📝 Complaint details updated\n"
+            f"Complaint: {instance.title}\n"
+            f"Complaint ID: {instance.complaint_id}\n"
+            f"Updated fields: {', '.join(changed_fields)}"
+        ),
+              }
+              channel_layer = get_channel_layer()
+              async_to_sync(channel_layer.group_send)(
+                  group_name,
+                  event
+              )
+              
+
+
+
+          
           return instance
 
 

@@ -103,7 +103,7 @@ def officer_notification(sender, created, instance, **kwargs):
 
         if instance.status == Complaint.Status.REOPENED:
             message = '🔄 Complaint reopened — action required'
-        if ins
+        
         
     if message:
         event = {
