@@ -10,12 +10,15 @@ from asgiref.sync import async_to_sync
 def previos_data(sender, instance,  **kwargs):
     if not instance.pk:
         instance._old_status=None
+        instance._priority=None
         return 
     try:
         precvious_data=Complaint.objects.get(pk=instance.pk)
         instance._old_status=precvious_data.status
+        instance._priority=precvious_data.priority
     except Complaint.DoesNotExist:
         instance._old_status=None
+        instance._priority=None
 
 
 
@@ -113,6 +116,7 @@ def officer_notification(sender, created, instance, **kwargs):
 def officer_notification(sender, created, instance, **kwargs):
     channel_layer=get_channel_layer()
     group_name=f"user_{instance.reporter_id}"
+    message=None
     if created:
         message=f'You Complaint with id {instance.complaint_id} successfully created'
         
@@ -130,4 +134,19 @@ def officer_notification(sender, created, instance, **kwargs):
             message = f"✅ Your complaint has been resolved.\n Resolution Note:- {instance.resolution_note}"
         elif instance.status == Complaint.Status.CLOSED:
             message = "📁 Your complaint has been closed."
+        elif instance.status == Complaint.Status.REJECTED:
+            message = '❌ "Your complaint was rejected." + reason'
+        elif instance.status == Complaint.Status.REOPENED:
+            message = '🔄 "Your complaint has been reopened."'
+        if instance._priority and instance._priority != instance.priority:
+            message = '⚠️ "Your complaint priority changed to High/Critical."'
+    if message:
+        event = {
+            "type":"student_notification",
+            "message":message
+        }
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            event
+        )
         
