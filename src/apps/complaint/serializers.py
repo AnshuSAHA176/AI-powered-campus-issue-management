@@ -7,7 +7,7 @@ from .complaint_analyze import after_complaint_created
 
 from django.db.models import Count,Q
 from apps.account.models import OfficerProfile
-
+from django.utils import timezone
 from .storage import temp_storage
 class CompliantImageSerializer(serializers.ModelSerializer):
      
@@ -181,7 +181,10 @@ class CompliantAssisgedOfficerSerializer(serializers.ModelSerializer):
                )
 
           return attrs
-     
+     def update(self, instance, validated_data):
+          if validated_data.get("status") == Complaint.Status.RESOLVED:
+            validated_data["resolved_at"] = timezone.now()
+          return super().update(instance, validated_data)
                
 
 

@@ -123,4 +123,11 @@ def officer_notification(sender, created, instance, **kwargs):
             message = "🔔 Officer has been assigned to your complaint."
         elif instance.status == Complaint.Status.INSPECTION:
             message =  "🔍 An officer has started inspecting your complaint."
+        elif instance.status == Complaint.Status.IN_PROGRESS:
+            message =  "🛠️ Work has started on your complaint."
+        elif instance.status == Complaint.Status.RESOLVED:
+            
+            message = f"✅ Your complaint has been resolved.\n Resolution Note:- {instance.resolution_note}"
+        elif instance.status == Complaint.Status.CLOSED:
+            message = "📁 Your complaint has been closed."
         
