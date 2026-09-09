@@ -115,6 +115,12 @@ def officer_notification(sender, created, instance, **kwargs):
     group_name=f"user_{instance.reporter_id}"
     if created:
         message=f'You Complaint with id {instance.complaint_id} successfully created'
-    if instance.status ==Complaint.Status.ACCEPTED:
-        message="✅ Your complaint has been accepted."
-   
+        
+    else:
+        if instance.status ==Complaint.Status.ACCEPTED:
+            message="✅ Your complaint has been accepted."
+        elif instance.status == Complaint.Status.ASSIGNED:
+            message = "🔔 Officer has been assigned to your complaint."
+        elif instance.status == Complaint.Status.INSPECTION:
+            message =  "🔍 An officer has started inspecting your complaint."
+        
