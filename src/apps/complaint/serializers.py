@@ -1,61 +1,66 @@
 from rest_framework import serializers
 
-from .models import Complaint,ComplaintImage
+from .models import Complaint, ComplaintImage
+from .complaint_analyze import after_complaint_created
+from .storage import temp_storage
 
 from django.db import transaction
-from .complaint_analyze import after_complaint_created
-from channels.layers import get_channel_layer
-
-from asgiref.sync import async_to_sync
-from django.db.models import Count,Q
-from apps.account.models import OfficerProfile
+from django.db.models import Count
 from django.utils import timezone
-from .storage import temp_storage
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+from apps.account.models import OfficerProfile
+
+
 class CompliantImageSerializer(serializers.ModelSerializer):
-     
-     class Meta:
-          model=ComplaintImage
-          fields=[
-               
-               'image',
-               'uploaded_at'
-               
-               
-          ]
+
+    class Meta:
+        model = ComplaintImage
+        fields = [
+            "image",
+            "uploaded_at",
+        ]
+
 
 class ComplainCreateSerializer(serializers.ModelSerializer):
 
     image_uploads = serializers.ListField(
         child=serializers.ImageField(),
         write_only=True,
-        required=True
+        required=True,
     )
 
     assigned_officer = serializers.CharField(
         source="assigned_officer.officer_profile.full_name",
-        read_only=True
+        read_only=True,
     )
 
     class Meta:
         model = Complaint
         fields = [
-            'reporter',
-            'title',
-            'description',
-            'location_type',
-            'building',
-            'room_number',
-            'landmark',
-            'assigned_officer',
-            'image_uploads',
-            'complaint_id',
+            "reporter",
+            "title",
+            "description",
+            "location_type",
+            "building",
+            "room_number",
+            "landmark",
+            "assigned_officer",
+            "image_uploads",
+            "complaint_id",
         ]
+
         extra_kwargs = {
-            'reporter': {"read_only": True},
+            "reporter": {
+                "read_only": True,
+            },
         }
 
     def create(self, validated_data):
-        images = validated_data.pop('image_uploads', [])
+
+        images = validated_data.pop("image_uploads", [])
+
+        # Reporter comes from request.user
         validated_data.pop("reporter", None)
 
         ACTIVE_STATUSES = [
@@ -66,49 +71,147 @@ class ComplainCreateSerializer(serializers.ModelSerializer):
             Complaint.Status.REOPENED,
         ]
 
-        temp_paths = [
-            temp_storage.save(f"temporary/{image.name}", image)
-            for image in images
-        ]
+        # --------------------------------
+        # Save uploaded images temporarily
+        # --------------------------------
+
+        temp_paths = []
 
         try:
-            with transaction.atomic():
-                officer = (
-                    OfficerProfile.objects
-                    .select_for_update(skip_locked=True)
-                    .annotate(
-                        active_count=Count(
-                            "user__assigned_complaints",
-                            filter=Q(user__assigned_complaints__status__in=ACTIVE_STATUSES)
-                        ),
-                    )
-                    .order_by('in_work', 'active_count', 'pk')
-                    .first()
+
+            for image in images:
+                path = temp_storage.save(
+                    f"temporary/{image.name}",
+                    image,
                 )
 
+                temp_paths.append(path)
+
+            # --------------------------------
+            # Database transaction
+            # --------------------------------
+
+            with transaction.atomic():
+
+                # --------------------------------
+                # 1. Lock all officer rows
+                # --------------------------------
+
+                officers = list(
+                    OfficerProfile.objects
+                    .select_for_update()
+                    .select_related("user")
+                    .all()
+                )
+
+                officer = None
+
+                if officers:
+
+                    # --------------------------------
+                    # 2. Calculate active complaints
+                    # --------------------------------
+
+                    officer_ids = [
+                        officer.user_id
+                        for officer in officers
+                    ]
+
+                    counts = (
+                        Complaint.objects
+                        .filter(
+                            assigned_officer_id__in=officer_ids,
+                            status__in=ACTIVE_STATUSES,
+                        )
+                        .values("assigned_officer_id")
+                        .annotate(
+                            active_count=Count("id")
+                        )
+                    )
+
+                    # Example:
+                    #
+                    # {
+                    #     12: 4,
+                    #     15: 2,
+                    #     18: 7
+                    # }
+
+                    count_map = {
+                        item["assigned_officer_id"]: item["active_count"]
+                        for item in counts
+                    }
+
+                    # --------------------------------
+                    # 3. Find least-loaded officer
+                    # --------------------------------
+
+                    officer = min(
+                        officers,
+                        key=lambda officer: (
+                            officer.in_work,
+                            count_map.get(
+                                officer.user_id,
+                                0,
+                            ),
+                            officer.pk,
+                        ),
+                    )
+
+                # --------------------------------
+                # 4. Assign officer
+                # --------------------------------
+
                 if officer:
+
                     validated_data["assigned_officer"] = officer.user
-                    validated_data["status"] = Complaint.Status.ASSIGNED
+
+                    validated_data["status"] = (
+                        Complaint.Status.ASSIGNED
+                    )
+
                     officer.in_work = True
-                    officer.save(update_fields=["in_work"])
+
+                    officer.save(
+                        update_fields=["in_work"]
+                    )
+
+                # --------------------------------
+                # 5. Create complaint
+                # --------------------------------
 
                 complaint = Complaint.objects.create(
-                    reporter=self.context['request'].user,
+                    reporter=self.context["request"].user,
                     **validated_data,
                 )
 
+                # --------------------------------
+                # 6. Start Celery AFTER commit
+                # --------------------------------
+
                 transaction.on_commit(
-                    lambda complaint_id=complaint.complaint_id, paths=temp_paths:
-                        after_complaint_created(complaint_id, paths)
+                    lambda
+                    complaint_id=str(complaint.complaint_id),
+                    paths=temp_paths.copy():
+                        after_complaint_created(
+                            complaint_id,
+                            paths,
+                        )
                 )
+
         except Exception:
-            # complaint was never created (or txn rolled back) — clean up orphaned temp files
+
+            # --------------------------------
+            # Delete temporary files
+            # if database transaction fails
+            # --------------------------------
+
             for path in temp_paths:
                 temp_storage.delete(path)
+
             raise
 
         return complaint
-
 
 
 
@@ -123,6 +226,7 @@ class ComplaintTitleSerializer(serializers.ModelSerializer):
     class Meta:
         model=Complaint
         fields=[
+            "complaint_id",
              "title",
              'category',
              'status',
@@ -148,55 +252,81 @@ class ComplaintDetailsSerializer(serializers.ModelSerializer):
           fields="__all__"
 
 class ComplaintOwnerUpdateSerializer(serializers.ModelSerializer):
-     class Meta:
-          model=Complaint
-          fields=[
-               'title',
-               'description',
-               'building',
-               'room_number',
-                'landmark'
-          ]
 
-     def update(self, instance, validated_data):
-          for item , valu in validated_data.items():
-               setattr(instance,item,valu)
-          instance.save()
-          old_data = {
-        "title": instance.title,
-        "description": instance.description,
-        "building": instance.building,
-        "room_number": instance.room_number,
-        "landmark": instance.landmark,
-    }
-          changed_fields=[ 
-              field for field,valu in old_data.items()
-                if field in validated_data and getattr(instance,field) != valu
-                ]
-          if changed_fields != []:
-              group_name=f'user_{instance.assigned_officer}'
-              event = {
-        "type": "officer_notification",
-        "notification_type": "complaint.details_updated",
-        "message": (
-            f"📝 Complaint details updated\n"
-            f"Complaint: {instance.title}\n"
-            f"Complaint ID: {instance.complaint_id}\n"
-            f"Updated fields: {', '.join(changed_fields)}"
-        ),
-              }
-              channel_layer = get_channel_layer()
-              async_to_sync(channel_layer.group_send)(
-                  group_name,
-                  event
-              )
-              
+    class Meta:
+        model = Complaint
+        fields = [
+            "title",
+            "description",
+            "building",
+            "room_number",
+            "landmark",
+        ]
 
+    def update(self, instance, validated_data):
 
+        # --------------------------------
+        # Store OLD values before updating
+        # --------------------------------
 
-          
-          return instance
+        old_data = {
+            "title": instance.title,
+            "description": instance.description,
+            "building": instance.building,
+            "room_number": instance.room_number,
+            "landmark": instance.landmark,
+        }
 
+        # --------------------------------
+        # Find changed fields
+        # --------------------------------
+
+        changed_fields = [
+            field
+            for field, new_value in validated_data.items()
+            if old_data.get(field) != new_value
+        ]
+
+        # --------------------------------
+        # Update complaint
+        # --------------------------------
+
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+
+        instance.save(
+            update_fields=list(validated_data.keys())
+        )
+
+        # --------------------------------
+        # Notify assigned officer
+        # --------------------------------
+
+        if changed_fields and instance.assigned_officer_id:
+
+            channel_layer = get_channel_layer()
+
+            group_name = f"user_{instance.assigned_officer_id}"
+
+            event = {
+                "type": "officer_notification",
+                "notification_type": "complaint.details_updated",
+                "message": (
+                    "📝 Complaint details updated\n"
+                    f"Complaint: {instance.title}\n"
+                    f"Complaint ID: {instance.complaint_id}\n"
+                    f"Updated fields: {', '.join(changed_fields)}"
+                ),
+            }
+
+            async_to_sync(
+                channel_layer.group_send
+            )(
+                group_name,
+                event
+            )
+
+        return instance
 
 
 

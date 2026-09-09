@@ -126,3 +126,54 @@ class StudentDashBord(APIView):
                 )
     
 
+class OfficerDashbordView(APIView):
+    def get(self,request):
+
+        
+
+
+        return Response(
+            {
+    "summary": {
+        "total_assigned": 24,
+        "active": 7,
+        "pending": 2,
+        "in_progress": 3,
+        "inspection": 1,
+        "resolved": 14,
+        "closed": 10,
+        "urgent": 2,
+        "critical": 1
+    },
+
+    "issues_by_status": [
+        {
+            "status": "assigned",
+            "count": 2
+        }
+    ],
+
+    "issues_by_priority": [
+        {
+            "priority": "critical",
+            "count": 1
+        }
+    ],
+
+    "issues_by_category": [
+        {
+            "category": "electrical",
+            "count": 5
+        }
+    ],
+
+    "needs_attention": [],
+
+    "recent_complaints": [],
+
+    "performance": {
+        "resolved_this_week": 8,
+        "resolved_this_month": 24
+    }
+}
+        )

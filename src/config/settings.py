@@ -23,6 +23,8 @@ ALLOWED_HOSTS = []
 
 
 INSTALLED_APPS = [
+    "corsheaders",
+
     "daphne",
     'django.contrib.admin',
     'django.contrib.auth',
@@ -40,6 +42,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+     "corsheaders.middleware.CorsMiddleware",
+
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
      "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -221,3 +225,15 @@ CHANNEL_LAYERS = {
 CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
 
 CELERY_TIMEZONE = "Asia/Kolkata"
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
