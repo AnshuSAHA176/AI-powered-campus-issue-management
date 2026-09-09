@@ -62,26 +62,59 @@ def invalidate_dashboard_cache(sender, instance, **kwargs):
      cache.delete(key=f'dashbord:{instance.reporter_id}')
 
 
-@receiver(post_save,sender=Complaint)
-def notification(sender,created,instance,**kwargs):
-    
+@receiver(post_save, sender=Complaint)
+def officer_notification(sender, created, instance, **kwargs):
+
     if not created:
         return
 
-    if not instance.assigned_officer:
-        return
-    
     channel_layer = get_channel_layer()
-    group_name=f"user_{instance.assigned_officer_id}"
-    event={
-                "type":"assigned_officer_message",
-                "message": (
-            f"🔔 New complaint assigned\n"
+
+    # No officer assigned
+    if not instance.assigned_officer:
+
+        group_name = f"user_{instance.reporter_id}"
+
+        event = {
+            "type": "unassigned_officer_message",
+            "message": (
+                "🔔 Your new complaint is currently unassigned\n"
+                f"Complaint: {instance.title}\n"
+                "We will notify you when an officer is assigned."
+            )
+        }
+
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            event
+        )
+
+        return
+
+    # Officer assigned
+    group_name = f"user_{instance.assigned_officer_id}"
+
+    event = {
+        "type": "assigned_officer_message",
+        "message": (
+            "🔔 New complaint assigned\n"
             f"Complaint: {instance.title}\n"
             f"Created by: {instance.reporter.student_profile.full_name}"
-        ),
-            }
+        )
+    }
+
     async_to_sync(channel_layer.group_send)(
         group_name,
         event
     )
+
+
+@receiver(post_save, sender=Complaint)
+def officer_notification(sender, created, instance, **kwargs):
+    channel_layer=get_channel_layer()
+    group_name=f"user_{instance.reporter_id}"
+    if created:
+        message=f'You Complaint with id {instance.complaint_id} successfully created'
+    if instance.status ==Complaint.Status.ACCEPTED:
+        message="✅ Your complaint has been accepted."
+   
