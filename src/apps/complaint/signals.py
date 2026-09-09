@@ -67,7 +67,7 @@ def invalidate_dashboard_cache(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Complaint)
 def officer_notification(sender, created, instance, **kwargs):
-
+    message=None
     if not created:
         return
 
@@ -94,26 +94,35 @@ def officer_notification(sender, created, instance, **kwargs):
 
         return
 
-    # Officer assigned
-    group_name = f"user_{instance.assigned_officer_id}"
+    else:
+        group_name = f"user_{instance.assigned_officer_id}"
+        message = '🔔 New complaint assigned'
 
-    event = {
-        "type": "assigned_officer_message",
-        "message": (
-            "🔔 New complaint assigned\n"
-            f"Complaint: {instance.title}\n"
-            f"Created by: {instance.reporter.student_profile.full_name}"
-        )
-    }
+        if instance._priority and instance._priority != instance.priority:
+            message = '⚠️ Priority changed'
 
-    async_to_sync(channel_layer.group_send)(
-        group_name,
-        event
-    )
+        if instance.status == Complaint.Status.REOPENED:
+            message = '🔄 Complaint reopened — action required'
+        if ins
+        
+    if message:
+        event = {
+                "type": "assigned_officer_message",
+                "message": (
+                    f"{message}\n"
+                    f"Complaint: {instance.title}\n"
+                    f"Created by: {instance.reporter.student_profile.full_name}"
+                )
+            }
+
+        async_to_sync(channel_layer.group_send)(
+                group_name,
+                event
+            )
 
 
 @receiver(post_save, sender=Complaint)
-def officer_notification(sender, created, instance, **kwargs):
+def student_notification(sender, created, instance, **kwargs):
     channel_layer=get_channel_layer()
     group_name=f"user_{instance.reporter_id}"
     message=None
@@ -135,15 +144,19 @@ def officer_notification(sender, created, instance, **kwargs):
         elif instance.status == Complaint.Status.CLOSED:
             message = "📁 Your complaint has been closed."
         elif instance.status == Complaint.Status.REJECTED:
-            message = '❌ "Your complaint was rejected." + reason'
+            message = '❌ Your complaint was rejected.'
         elif instance.status == Complaint.Status.REOPENED:
-            message = '🔄 "Your complaint has been reopened."'
+            message = "🔄 Your complaint has been reopened."
         if instance._priority and instance._priority != instance.priority:
             message = '⚠️ "Your complaint priority changed to High/Critical."'
     if message:
         event = {
             "type":"student_notification",
-            "message":message
+            "message":f'''
+                        {message}
+                        f"Complaint: {instance.title}\n"
+                        f"Complaint ID : {instance.complaint_id}"
+                        '''
         }
         async_to_sync(channel_layer.group_send)(
             group_name,

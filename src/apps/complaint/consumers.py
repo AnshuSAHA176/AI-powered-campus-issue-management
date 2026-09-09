@@ -20,3 +20,5 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=event['message'])
     async def unassiged_officer_message(self,event):
         await self.send(text_data=event['message'])
+    async def student_notification(self,event):
+        await self.send(text_data=event['message'])
