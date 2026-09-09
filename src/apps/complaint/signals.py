@@ -107,7 +107,7 @@ def officer_notification(sender, created, instance, **kwargs):
         
     if message:
         event = {
-                "type": "assigned_officer_message",
+                "type": "officer_notification",
                 "message": (
                     f"{message}\n"
                     f"Complaint: {instance.title}\n"
