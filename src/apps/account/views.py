@@ -16,7 +16,12 @@ from django.db.models import Q,Count
 from ..complaint.serializers import ComplaintTitleSerializer
 from ..complaint.models import Complaint
 from django.core.cache import cache
+from rest_framework.permissions import BasePermission
 
+
+class IsOfficer(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == User.RoleChoices.OFFICER
 
 
 
@@ -127,23 +132,57 @@ class StudentDashBord(APIView):
     
 
 class OfficerDashbordView(APIView):
+    
+    permission_classes=[IsOfficer]
+    authentication_classes=[JWTAuthentication]
     def get(self,request):
 
+        ACTIVE_STATUSES = [
+            Complaint.Status.ASSIGNED,
+            Complaint.Status.ACCEPTED,
+            Complaint.Status.INSPECTION,
+            Complaint.Status.IN_PROGRESS,
+            Complaint.Status.REOPENED,
+        ]
+        complaint = Complaint.objects.filter(assigned_officer=request.user)
+        summery = complaint.aggregate(
+            total_assigned=Count('id'),
+            active = Count(
+                'id',
+                filter=
+                Q(status__in=ACTIVE_STATUSES)),
+            pending=Count(
+                'id',filter=Q(status=Complaint.Status.PENDING)
+            ),
+            in_progress=Count('id',filter=Q(status=Complaint.Status.IN_PROGRESS)),
+            inspection=Count('id',filter=Q(status=Complaint.Status.INSPECTION)),
+            resolved=Count('id',filter=Q(status=Complaint.Status.RESOLVED)),
+            closed=Count('id',filter=Q(status=Complaint.Status.CLOSED)),
+            urgent = Count(
+                    "id",
+                filter=Q(priority__in=["high", "critical"])
+            ),
+
+            critical = Count(
+                "id",
+                filter=Q(priority="critical")
+            ), 
+            )
         
 
 
         return Response(
             {
     "summary": {
-        "total_assigned": 24,
-        "active": 7,
-        "pending": 2,
-        "in_progress": 3,
-        "inspection": 1,
-        "resolved": 14,
-        "closed": 10,
-        "urgent": 2,
-        "critical": 1
+        "total_assigned":  summery['total_assigned'],
+        "active": summery['active'],
+        "pending": summery['pending'],
+        "in_progress": summery['in_progress'],
+        "inspection": summery['inspection'],
+        "resolved":  summery['resolved'],
+        "closed":  summery['closed'],
+        "urgent": summery['urgent'],
+        "critical": summery['critical']
     },
 
     "issues_by_status": [
