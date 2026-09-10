@@ -12,7 +12,7 @@ class Services():
         }
     
     def complain_list(self):
-        response=requests.get( f"{self.url}/complaints/",
+        response=requests.get( f"{self.base_url}complaints/",
             headers=self._headers(),)
         response.raise_for_status()
         return response.json()
