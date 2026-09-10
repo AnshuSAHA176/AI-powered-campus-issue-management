@@ -190,19 +190,28 @@ class Complaint(models.Model):
             models.Index(fields=["assigned_officer"]),
             models.Index(fields=["created_at"]),
         ]
-    def save(self, *args,**kwargs):
-        
+    def save(self, *args, **kwargs):
+
         if not self.complaint_id:
-            prefix=f'CMP-{timezone.now().year}-'
-            last=Complaint.objects.filter(complaint_id__startswith=prefix).order_by('-complaint_id').first()
-            last_number=int(last.complaint_id.split("-")[-1])+1 if last else 1
-            self.complaint_id=f"{prefix}{last_number:06d}"   
-            return super().save(*args,**kwargs)
-    
+            prefix = f"CMP-{timezone.now().year}-"
+
+            last = (
+                Complaint.objects
+                .filter(complaint_id__startswith=prefix)
+                .order_by("-complaint_id")
+                .first()
+            )
+
+            last_number = (
+                int(last.complaint_id.split("-")[-1]) + 1
+                if last else 1
+            )
+
+            self.complaint_id = f"{prefix}{last_number:06d}"
+
+        return super().save(*args, **kwargs)
     def __str__(self):
-        return f"{self.title} - {self.status}"
-
-
+        return f"{self.complaint_id} {self.title}"
 
 
 class ComplaintImage(models.Model):

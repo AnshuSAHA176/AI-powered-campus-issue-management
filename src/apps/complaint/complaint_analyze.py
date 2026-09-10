@@ -9,7 +9,7 @@ from typing import Literal
 from .models import Complaint,ComplaintImage
 from celery import shared_task
 from cloudinary.uploader import upload
-
+from .embedding import create_embedding
 
 from .storage import temp_storage
 
@@ -189,6 +189,7 @@ def ai_analyzer(self,complaint_id)->dict:
                 "ai_confidence",
             ]
         )
+        create_embedding.delay(str(complaint.complaint_id))
     except Exception as exc:
         raise self.retry(countdown= 2 ** self.request.retries, exc=exc)
 
@@ -211,12 +212,9 @@ def images_process(self, complaint_id, temp_paths):
 
     if remaining:
         raise self.retry(countdown=2 ** self.request.retries, args=[complaint_id, remaining])
+
    
-
-def after_complaint_created(complaint_id,paths):
-
+def after_complaint_created(complaint_id, paths):
     ai_analyzer.delay(complaint_id)
-
-    images_process.delay(complaint_id=complaint_id,temp_paths=paths)
-
+    images_process.delay(complaint_id, paths)
     

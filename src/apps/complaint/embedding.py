@@ -1,15 +1,52 @@
 from sentence_transformers import SentenceTransformer
+from celery import shared_task
+from .models import Complaint
+
 
 model = SentenceTransformer(
-    "sentence-transformers/all-MiniLM-L6-v2"
+    "sentence-transformers/all-MiniLM-L6-v2",
+    device="cpu"
 )
 
-text = "Water is leaking from the ceiling in room 204"
 
-embedding = model.encode(
-    text,
-    normalize_embeddings=True
+def embedding_model(text: str):
+    return model.encode(
+        text,
+        normalize_embeddings=True
+    ).tolist()
+
+
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
 )
+def create_embedding(self, complaint_id):
 
-print("Embedding dimensions:", len(embedding))
-print("First 5 values:", embedding)
+    complaint = Complaint.objects.get(
+        complaint_id=complaint_id
+    )
+
+    text = f"""
+    {complaint.description}
+
+    Building: {complaint.building}
+    Room: {complaint.room_number}
+    Landmark: {complaint.landmark}
+    Category: {complaint.category}
+    """
+
+    embedding = embedding_model(text)
+
+    complaint.embedding = embedding
+
+    complaint.save(
+        update_fields=["embedding"]
+    )
+
+
+
+@shared_task(bind=True)
+def duplicate_compliant_detection(self,complaint_id):
+    complaint = Complaint.objects.get(complaint_id)
