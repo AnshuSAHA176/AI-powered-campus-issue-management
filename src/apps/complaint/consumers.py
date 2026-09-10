@@ -22,3 +22,5 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=event['message'])
     async def student_notification(self,event):
         await self.send(text_data=event['message'])
+    async def duplicate_notification(self,event):
+        await self.send(text_data=event['message'])

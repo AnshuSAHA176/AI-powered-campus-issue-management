@@ -168,18 +168,57 @@ def student_notification(sender, created, instance, **kwargs):
 @receiver(post_save, sender=ComplaintSimilarity)
 def dupliaced_detection_notification(sender, created, instance, **kwargs):
     if created:
-        group_name1=f'user_{instance.complaint_reporter_id}'
-        group_name2=f'user_{instance.complaint_assigned_officer_id}'
+        group_name1=f'user_{instance.complaint.reporter_id}'
+        
         channel_layer=get_channel_layer()
         message1 = {
     "type": "duplicate_complaint",
     "title": "Similar complaint found",
     "message": (
         f"We found a similar complaint ({instance.similarity:.0%} similarity) "
-        f"already reported as {instance.complaint_id}. "
+        f"The similar complaint Id is:- {instance.similar_complaint}. "
         "Please check the existing complaint before submitting another report."
     ),
     "complaint_id": str(instance.complaint_id),
-    "similar_complaint_id": str(match.complaint_id),
-    "similarity": round(similarity, 2),
-}
+    "similar_complaint_id": str(instance.similar_complaint),
+
+    }
+        if instance.complaint.assigned_officer_id:
+                    group_name2 = f'user_{instance.complaint.assigned_officer_id}'
+                    message2 = {
+                "type": "duplicate_complaint",
+                "title": "Possible duplicate detected",
+                "message": (
+                    f"Complaint {instance.complaint_id} is {instance.similarity:.0%} "
+                    f"similar to existing complaint {instance.similar_complaint}. "
+                    "Please review the existing complaint and determine whether "
+                    "this report is a duplicate or a separate issue."
+                ),
+                "complaint_id": str(instance.complaint_id),
+                "similar_complaint_id": str(instance.similar_complaint),
+            }       
+
+                    event2={
+                            "type":'duplicate_notification',
+                            "message":message2
+                        }
+                    async_to_sync(channel_layer.group_send)(
+                        group_name2,
+                        event2
+                    )
+
+
+                    
+    event1={
+        "type":'duplicate_notification',
+        "message" : message1
+    }
+    async_to_sync(channel_layer.group_send)(
+                            group_name1,
+                            event1
+                        )
+    
+
+
+    
+    
