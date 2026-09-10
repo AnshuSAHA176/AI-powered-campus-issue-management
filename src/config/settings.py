@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'apps.account',
     'apps.complaint',
+    'apps.ai_agent',
     'django_filters',
     'channels',
     'pgvector',

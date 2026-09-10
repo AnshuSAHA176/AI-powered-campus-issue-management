@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class AiAgnetConfig(AppConfig):
+class AiAgnetView(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'ai_agnet'
+    name = 'apps.ai_agent'
