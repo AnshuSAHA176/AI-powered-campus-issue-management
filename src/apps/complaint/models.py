@@ -285,3 +285,33 @@ class ComplaintStatusHistory(models.Model):
             f"{self.complaint.title}: "
             f"{self.old_status} → {self.new_status}"
         )
+
+
+
+
+class ComplaintSimilarity(models.Model):
+    complaint = models.ForeignKey(
+        Complaint,
+        on_delete=models.CASCADE,
+        related_name="similar_complaints",
+    )
+
+    similar_complaint = models.ForeignKey(
+        Complaint,
+        on_delete=models.CASCADE,
+        related_name="matched_by",
+    )
+
+    similarity_score = models.FloatField()
+
+    is_duplicate = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["complaint", "similar_complaint"],
+                name="unique_complaint_similarity",
+            )
+        ]

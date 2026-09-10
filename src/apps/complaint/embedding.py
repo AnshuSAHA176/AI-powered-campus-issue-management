@@ -1,7 +1,7 @@
 from sentence_transformers import SentenceTransformer
 from celery import shared_task
 from .models import Complaint
-
+from pgvector.django import CosineDistance
 
 model = SentenceTransformer(
     "sentence-transformers/all-MiniLM-L6-v2",
@@ -49,4 +49,21 @@ def create_embedding(self, complaint_id):
 
 @shared_task(bind=True)
 def duplicate_compliant_detection(self,complaint_id):
-    complaint = Complaint.objects.get(complaint_id)
+    complaint = Complaint.objects.get(complaint_id=complaint_id)
+    embedding = complaint.embedding
+    similar=(Complaint.objects.filter(embedding__isnull=False).
+             exclude(id=complaint.id).
+
+             annotate(distance=CosineDistance('embedding',embedding)).
+             order_by('distance')[:4]
+
+    )
+
+    for match in similar:
+        similarity = 1 - match.distance
+
+        if similarity >= 0.85:
+            
+
+
+
