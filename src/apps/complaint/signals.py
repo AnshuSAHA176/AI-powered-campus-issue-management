@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save,pre_save,post_delete
 
 from django.dispatch import receiver
-from .models import Complaint,ComplaintStatusHistory
+from .models import Complaint,ComplaintStatusHistory,ComplaintSimilarity
 from django.core.cache import cache
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
@@ -162,4 +162,24 @@ def student_notification(sender, created, instance, **kwargs):
             group_name,
             event
         )
-        
+
+
+
+@receiver(post_save, sender=ComplaintSimilarity)
+def dupliaced_detection_notification(sender, created, instance, **kwargs):
+    if created:
+        group_name1=f'user_{instance.complaint_reporter_id}'
+        group_name2=f'user_{instance.complaint_assigned_officer_id}'
+        channel_layer=get_channel_layer()
+        message1 = {
+    "type": "duplicate_complaint",
+    "title": "Similar complaint found",
+    "message": (
+        f"We found a similar complaint ({instance.similarity:.0%} similarity) "
+        f"already reported as {instance.complaint_id}. "
+        "Please check the existing complaint before submitting another report."
+    ),
+    "complaint_id": str(instance.complaint_id),
+    "similar_complaint_id": str(match.complaint_id),
+    "similarity": round(similarity, 2),
+}

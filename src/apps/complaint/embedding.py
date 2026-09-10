@@ -2,7 +2,7 @@ from sentence_transformers import SentenceTransformer
 from celery import shared_task
 from .models import Complaint
 from pgvector.django import CosineDistance
-
+from .models import ComplaintSimilarity
 model = SentenceTransformer(
     "sentence-transformers/all-MiniLM-L6-v2",
     device="cpu"
@@ -55,7 +55,7 @@ def duplicate_compliant_detection(self,complaint_id):
              exclude(id=complaint.id).
 
              annotate(distance=CosineDistance('embedding',embedding)).
-             order_by('distance')[:4]
+             order_by('distance')[:6]
 
     )
 
@@ -63,7 +63,10 @@ def duplicate_compliant_detection(self,complaint_id):
         similarity = 1 - match.distance
 
         if similarity >= 0.85:
-            
-
+            ComplaintSimilarity.objects.create(complaint=complaint.id, 
+                                               similar_complaint = match.id,
+                                               similarity_score = similarity,
+                                               
+                                               )
 
 

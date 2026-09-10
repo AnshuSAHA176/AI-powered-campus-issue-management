@@ -9,7 +9,7 @@ from typing import Literal
 from .models import Complaint,ComplaintImage
 from celery import shared_task
 from cloudinary.uploader import upload
-from .embedding import create_embedding
+from .embedding import create_embedding,duplicate_compliant_detection
 
 from .storage import temp_storage
 
@@ -190,6 +190,7 @@ def ai_analyzer(self,complaint_id)->dict:
             ]
         )
         create_embedding.delay(str(complaint.complaint_id))
+        duplicate_compliant_detection.delay(str(complaint.complaint_id))
     except Exception as exc:
         raise self.retry(countdown= 2 ** self.request.retries, exc=exc)
 
