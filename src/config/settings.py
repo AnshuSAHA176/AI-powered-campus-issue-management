@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'apps.complaint',
     'django_filters',
     'channels',
+    'pgvector',
 ]
 
 MIDDLEWARE = [

@@ -1,11 +1,12 @@
 from django.db import models
 
 import uuid
-
+from pgvector.django import VectorField
 from django.conf import settings
 from django.db import models
 from config import settings
 from django.utils import timezone
+
 class Complaint(models.Model):
 
     class LocationType(models.TextChoices):
@@ -98,7 +99,11 @@ class Complaint(models.Model):
     # --------------------------------------------------------
     # Location
     # --------------------------------------------------------
-
+    embedding=VectorField(
+        dimensions=384,
+        null=True,
+        blank=True,
+    )
    
 
     location_type = models.CharField(
