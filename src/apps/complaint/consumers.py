@@ -1,5 +1,5 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
-
+import json
 
 class NotificationConsumer(AsyncWebsocketConsumer):
 
@@ -23,4 +23,4 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     async def student_notification(self,event):
         await self.send(text_data=event['message'])
     async def duplicate_notification(self,event):
-        await self.send(text_data=event['message'])
+        await self.send(text_data=json.dumps(event["message"]))

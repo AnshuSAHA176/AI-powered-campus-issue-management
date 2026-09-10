@@ -63,8 +63,8 @@ def duplicate_compliant_detection(self,complaint_id):
         similarity = 1 - match.distance
 
         if similarity >= 0.85:
-            ComplaintSimilarity.objects.create(complaint=complaint.id, 
-                                               similar_complaint = match.id,
+            ComplaintSimilarity.objects.create(complaint=complaint,
+                                                similar_complaint=match,
                                                similarity_score = similarity,
                                                
                                                )

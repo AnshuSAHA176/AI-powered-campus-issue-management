@@ -166,59 +166,78 @@ def student_notification(sender, created, instance, **kwargs):
 
 
 @receiver(post_save, sender=ComplaintSimilarity)
-def dupliaced_detection_notification(sender, created, instance, **kwargs):
-    if created:
-        group_name1=f'user_{instance.complaint.reporter_id}'
-        
-        channel_layer=get_channel_layer()
-        message1 = {
-    "type": "duplicate_complaint",
-    "title": "Similar complaint found",
-    "message": (
-        f"We found a similar complaint ({instance.similarity:.0%} similarity) "
-        f"The similar complaint Id is:- {instance.similar_complaint}. "
-        "Please check the existing complaint before submitting another report."
-    ),
-    "complaint_id": str(instance.complaint_id),
-    "similar_complaint_id": str(instance.similar_complaint),
+def duplicate_detection_notification(sender, created, instance, **kwargs):
+    print("🔥 DUPLICATE SIGNAL FIRED")
+    print("Created:", created)
+    print("Complaint:", instance.complaint_id)
+    print("Similar:", instance.similar_complaint_id)
+    print("Similarity:", instance.similarity_score)
 
+    if not created:
+        return
+
+    channel_layer = get_channel_layer()
+
+    # -------------------------
+    # Student notification
+    # -------------------------
+
+    group_name1 = f"user_{instance.complaint.reporter_id}"
+
+    message1 = {
+        "type": "duplicate_complaint",
+        "title": "Similar complaint found",
+        "message": (
+            f"We found a similar complaint "
+            f"({instance.similarity_score:.0%} similarity). "
+            f"Similar complaint ID: {instance.similar_complaint_id}. "
+            "Please check the existing complaint before submitting "
+            "another report."
+        ),
+        "complaint_id": str(instance.complaint_id),
+        "similar_complaint_id": str(instance.similar_complaint_id),
     }
-        if instance.complaint.assigned_officer_id:
-                    group_name2 = f'user_{instance.complaint.assigned_officer_id}'
-                    message2 = {
-                "type": "duplicate_complaint",
-                "title": "Possible duplicate detected",
-                "message": (
-                    f"Complaint {instance.complaint_id} is {instance.similarity:.0%} "
-                    f"similar to existing complaint {instance.similar_complaint}. "
-                    "Please review the existing complaint and determine whether "
-                    "this report is a duplicate or a separate issue."
-                ),
-                "complaint_id": str(instance.complaint_id),
-                "similar_complaint_id": str(instance.similar_complaint),
-            }       
 
-                    event2={
-                            "type":'duplicate_notification',
-                            "message":message2
-                        }
-                    async_to_sync(channel_layer.group_send)(
-                        group_name2,
-                        event2
-                    )
-
-
-                    
-    event1={
-        "type":'duplicate_notification',
-        "message" : message1
+    event1 = {
+        "type": "duplicate_notification",
+        "message": message1,
     }
+
     async_to_sync(channel_layer.group_send)(
-                            group_name1,
-                            event1
-                        )
-    
+        group_name1,
+        event1,
+    )
 
+    # -------------------------
+    # Officer notification
+    # -------------------------
 
-    
-    
+    if instance.complaint.assigned_officer_id:
+
+        group_name2 = (
+            f"user_{instance.complaint.assigned_officer_id}"
+        )
+
+        message2 = {
+            "type": "duplicate_complaint",
+            "title": "Possible duplicate detected",
+            "message": (
+                f"Complaint {instance.complaint_id} is "
+                f"{instance.similarity_score:.0%} similar to "
+                f"existing complaint {instance.similar_complaint_id}. "
+                "Please review both complaints and determine whether "
+                "this report is a duplicate or a separate issue."
+            ),
+            "complaint_id": str(instance.complaint_id),
+            "similar_complaint_id": str(instance.similar_complaint_id),
+        }
+
+        event2 = {
+            "type": "duplicate_notification",
+            "message": message2,
+        }
+
+        async_to_sync(channel_layer.group_send)(
+            group_name2,
+            event2,
+        )
