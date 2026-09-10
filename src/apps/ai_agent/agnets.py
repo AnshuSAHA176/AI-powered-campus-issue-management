@@ -12,13 +12,15 @@ from typing import TypedDict, Annotated
 from .llm import get_model
 from .tools import agent_tool
 from langgraph.checkpoint.memory import InMemorySaver
-
+from .domain import domain
+from langchain.messages import AIMessage
 def get_agent(access_token):
 
     model = get_model()
 
     class Agent_State(TypedDict):
         messages: Annotated[list, add_messages]
+        domain : str
 
     # Create tool
     complaint_list = agent_tool(
@@ -32,7 +34,7 @@ def get_agent(access_token):
 
     # Graph
     graph_builder = StateGraph(Agent_State)
-
+    cheakpointer=InMemorySaver()
     # Agent node
     def agent(state: Agent_State):
 
@@ -46,11 +48,52 @@ def get_agent(access_token):
 
 
 
-    def domain(state:Agent_State):
-        ...
+    def domain_classifyer(state:Agent_State):
+
+        human_messages=[
+            message
+            for message in state['messages']
+            if message.type == 'human'
+        ]
+        recent_human_messages = human_messages[-3:]
+
+        conversation = "\n".join(
+            message.content
+            for message in recent_human_messages
+        )
+        result= domain(conversation)
+
+        return {"domain":result}
+
+    def domain_router(state:Agent_State):
+        domain=state['domain']
+        if domain=='campus':
+            return 'agent'
+        return "reject"
+
+    
+    def reject_off_topic(state: Agent_State):
+
+        return {
+            "messages": [
+                AIMessage(
+                    content=(
+                        "I'm here to help with Campus Problems. "
+                        
+                    )
+                )
+            ]
+        }
 
 
 
+
+
+    graph_builder.add_node('domain_guard',domain_classifyer)
+    graph_builder.add_node(
+        "reject",
+        reject_off_topic,
+    )
 
     graph_builder.add_node(
         "agent",
@@ -66,8 +109,14 @@ def get_agent(access_token):
     # START → agent
     graph_builder.add_edge(
         START,
-        "agent"
+        "domain_guard"
     )
+
+    graph_builder.add_conditional_edges(
+        'domain_guard',domain_router,{'campus':'agent','reject':'reject'}
+
+    )
+
 
     # agent → tools OR END
     graph_builder.add_conditional_edges(
@@ -75,6 +124,7 @@ def get_agent(access_token):
         tools_condition,
     )
 
+    graph_builder.add_edge('reject',END)
     # tools → agent
     graph_builder.add_edge(
         "tools",
@@ -82,4 +132,4 @@ def get_agent(access_token):
     )
     
 
-    return graph_builder.compile()
+    return graph_builder.compile(checkpointer=cheakpointer)
