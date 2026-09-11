@@ -1,5 +1,6 @@
 from typing import Literal
 from pydantic import BaseModel
+import json
 
 from .llm import get_model
 
@@ -10,23 +11,51 @@ class Domain(BaseModel):
 
 def domain(message: str) -> str:
 
-    model = get_model().with_structured_output(Domain)
+    model = get_model()
 
     prompt = f"""
 You are a domain classifier for CivicAI.
 
-Determine whether the user's message is related to a
-campus/university system.
+Classify the user's message into exactly one of these domains:
 
-Return:
-- campus → campus, university, students, complaints, hostels,
-  classrooms, buildings, facilities, officers, or CivicAI.
-- unknown → anything unrelated to the campus.
+campus
+unknown
+
+Use "campus" when the message is related to:
+- campus
+- university
+- college
+- students
+- complaints
+- hostels
+- classrooms
+- buildings
+- facilities
+- officers
+- CivicAI
+
+Use "unknown" for anything unrelated.
+
+Return ONLY valid JSON.
+
+The JSON must have exactly this structure:
+
+{{"domain": "campus"}}
+
+or
+
+{{"domain": "unknown"}}
 
 User message:
 {message}
 """
 
-    result = model.invoke(prompt)
+    response = model.invoke(prompt)
+
+    data = json.loads(response.content)
+
+    result = Domain.model_validate(data)
+
+    print(result)
 
     return result.domain

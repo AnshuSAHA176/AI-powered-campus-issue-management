@@ -62,13 +62,13 @@ def get_agent(access_token):
             for message in recent_human_messages
         )
         result= domain(conversation)
-
+        print(result)
         return {"domain":result}
 
     def domain_router(state:Agent_State):
         domain=state['domain']
         if domain=='campus':
-            return 'agent'
+            return 'campus'
         return "reject"
 
     
@@ -89,47 +89,30 @@ def get_agent(access_token):
 
 
 
-    graph_builder.add_node('domain_guard',domain_classifyer)
-    graph_builder.add_node(
-        "reject",
-        reject_off_topic,
-    )
+    graph_builder.add_node("domain_guard", domain_classifyer)
+    graph_builder.add_node("agent", agent)
+    graph_builder.add_node("reject", reject_off_topic)
 
-    graph_builder.add_node(
-        "agent",
-        agent
-    )
-
-    # Tool node
-    graph_builder.add_node(
-        "tools",
-        ToolNode([complaint_list])
-    )
-
-    # START → agent
-    graph_builder.add_edge(
-        START,
-        "domain_guard"
-    )
+    graph_builder.add_edge(START, "domain_guard")
 
     graph_builder.add_conditional_edges(
-        'domain_guard',domain_router,{'campus':'agent','reject':'reject'}
-
+        "domain_guard",
+        domain_router,
+        {
+            "campus": "agent",
+            "reject": "reject",
+        }
     )
 
-
-    # agent → tools OR END
     graph_builder.add_conditional_edges(
         "agent",
         tools_condition,
     )
 
-    graph_builder.add_edge('reject',END)
-    # tools → agent
-    graph_builder.add_edge(
-        "tools",
-        "agent"
-    )
-    
+    graph_builder.add_node("tools", ToolNode([complaint_list]))
+
+    graph_builder.add_edge("tools", "agent")
+    graph_builder.add_edge("reject", END)
+        
 
     return graph_builder.compile(checkpointer=cheakpointer)
