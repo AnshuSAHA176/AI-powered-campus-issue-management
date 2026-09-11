@@ -44,3 +44,6 @@ class AgentView(APIView):
     def _get_token(self, request):
         auth_header = request.headers.get("Authorization", "")
         return auth_header.replace("Bearer ", "")
+
+
+    
