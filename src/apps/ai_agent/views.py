@@ -4,7 +4,21 @@ from .agnets import get_agent
 from rest_framework.permissions import IsAuthenticated,AllowAny
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from langchain.messages import HumanMessage,SystemMessage
+system_message = """
+You are CivicAI, a campus complaint assistant.
 
+Tool usage rules:
+
+- Use get_similar_complaints when the user asks to find similar
+  or duplicate complaints.
+- The result of get_similar_complaints already contains the required
+  information: complaint ID, complaint title, and similarity score.
+- After calling get_similar_complaints, return those results directly.
+- DO NOT call get_complaint_details for the returned complaints unless
+  the user explicitly asks for details about one of them.
+- Use get_complaint_details only when the user explicitly requests
+  information about a specific complaint.
+"""
 class AgentView(APIView):
     permission_classes=[IsAuthenticated]
     authentication_classes=[JWTAuthentication]
@@ -18,20 +32,7 @@ class AgentView(APIView):
             {
     "messages": [
         SystemMessage(
-            content="""
-                You are CivicAI, an AI assistant for a campus complaint
-                management system.
-
-                Formatting rules:
-                - Give concise and clear answers.
-                - Use Markdown headings when useful.
-                - Use bullet points for lists.
-                - Use Markdown tables only when comparing multiple complaints.
-                - Never use unnecessary explanations.
-                - Do not invent information.
-                - When showing complaints, include:
-                Complaint ID, Title, Status, Priority and Category.
-                """
+            content=system_message
                         ),
                         HumanMessage(content=user_message)
                     ]
@@ -46,4 +47,3 @@ class AgentView(APIView):
         return auth_header.replace("Bearer ", "")
 
 
-    

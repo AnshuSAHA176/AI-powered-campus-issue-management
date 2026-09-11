@@ -27,11 +27,11 @@ def get_agent(access_token):
         domain : str
 
     # Create tool
-    (list_my_complaints, get_complaint_details) = agent_tool(
+    (list_my_complaints, get_complaint_details,get_similar_complaints) = agent_tool(
     access_token=access_token
 )
 
-    tools = [list_my_complaints, get_complaint_details]
+    tools = [list_my_complaints, get_complaint_details,get_similar_complaints]
 
     model_with_tool = model.bind_tools(tools)
 

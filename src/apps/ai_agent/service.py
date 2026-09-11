@@ -25,9 +25,9 @@ class Services():
         response.raise_for_status()
         return response.json()
 
-    def get_similar_complaints(self):
-        'similar/<str:compliant_id>/'
-        response=requests.get( f"{self.base_url}complaints/{complaint_id}/",
+    def get_similar_complaints(self,complaint_id):
+        
+        response=requests.get( f"{self.base_url}complaints/similar/{complaint_id}/",
                             headers=self._headers(),)
         response.raise_for_status()
         return response.json()

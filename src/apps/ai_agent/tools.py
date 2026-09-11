@@ -43,6 +43,37 @@ def agent_tool(access_token):
           """
           print("get_complaint_details")
           return services.compliant_details(complaint_id)
+     @tool
+     def get_similar_complaints(complaint_id: str):
+          """
+          Find complaints that are semantically similar to the specified complaint.
 
+          Use this tool when the user asks to:
+          - find similar complaints
+          - find duplicate complaints
+          - check for duplicate or related complaints
+          - see complaints similar to a specific complaint
 
-     return list_my_complaints, get_complaint_details
+          The result already contains all information needed to present the
+          similar complaints:
+          - complaint_id
+          - complaint_title
+          - similarity_score
+
+          IMPORTANT:
+          After using this tool, do NOT call get_complaint_details for the
+          returned complaints unless the user explicitly asks for the details
+          of a specific returned complaint.
+
+          Args:
+               complaint_id: The ID of the complaint for which similar complaints
+                    should be found.
+
+          Returns:
+               A list of similar complaints containing only their complaint ID,
+               title, and similarity score.
+          """
+          print("similar complaints")
+          return services.get_similar_complaints(complaint_id)
+
+     return list_my_complaints, get_complaint_details,get_similar_complaints
