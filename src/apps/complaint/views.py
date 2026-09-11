@@ -1,12 +1,13 @@
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated,IsAdminUser
-from .models import Complaint
+from .models import Complaint,ComplaintSimilarity
 from .serializers import (
                           ComplainCreateSerializer,
                           ComplaintTitleSerializer,
                           ComplaintOwnerUpdateSerializer,
                           CompliantAssisgedOfficerSerializer,
-                          ComplaintDetailsSerializer
+                          ComplaintDetailsSerializer,
+                          SemilarCompliantSerializer,
                           )
 
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -18,9 +19,9 @@ from rest_framework.response import Response
 from .filters import Filtering
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter,OrderingFilter
-
+from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
-
+from django.shortcuts import get_object_or_404
 
 class IsComplaintOwner(BasePermission):
      def has_permission(self, request, view):
@@ -120,3 +121,16 @@ class ComplaintViewSet(viewsets.ViewSet):
              "complaint":serializer.data
         })
 
+
+
+class SimilarCompliants(APIView):
+     permission_classes=[IsAuthenticated]
+     authentication_classes=[JWTAuthentication]
+     def get(self,request,compliant_id):
+          compliant = Complaint.objects.filter(complaint_id=compliant_id).prefetch_related('similar_complaints').first()
+
+          serializer = SemilarCompliantSerializer(compliant.similar_complaints,many=True)
+
+          return Response(serializer.data
+                          )
+          

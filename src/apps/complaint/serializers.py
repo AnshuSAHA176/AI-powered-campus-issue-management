@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Complaint, ComplaintImage
+from .models import Complaint, ComplaintImage,ComplaintSimilarity
 from .complaint_analyze import after_complaint_created
 from .storage import temp_storage
 
@@ -354,3 +354,17 @@ class CompliantAssisgedOfficerSerializer(serializers.ModelSerializer):
 
 
 
+class SemilarCompliantSerializer(serializers.ModelSerializer):
+    complaint_id=serializers.CharField(
+        source='similar_complaint.complaint_id'
+    )
+    complaint_title=serializers.CharField(
+        source='similar_complaint.title'
+    )
+    class Meta:
+        model=ComplaintSimilarity
+        fields=[
+            'complaint_id',
+            'complaint_title',
+            'similarity_score',
+        ]
