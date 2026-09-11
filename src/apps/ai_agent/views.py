@@ -9,7 +9,7 @@ class AgentView(APIView):
     permission_classes=[IsAuthenticated]
     authentication_classes=[JWTAuthentication]
     def post(self,request):
-        config={"configurable": {"thread_id": request.user.id}}
+        config={"configurable": {"thread_id": str(request.user.id)}}
         access=self._get_token(request)
         agent = get_agent(access_token=access)
         user_message=request.data['message']

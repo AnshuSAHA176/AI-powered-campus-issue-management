@@ -14,6 +14,10 @@ from .tools import agent_tool
 from langgraph.checkpoint.memory import InMemorySaver
 from .domain import domain
 from langchain.messages import AIMessage
+
+
+cheakpointer=InMemorySaver()
+
 def get_agent(access_token):
 
     model = get_model()
@@ -33,7 +37,7 @@ def get_agent(access_token):
 
     # Graph
     graph_builder = StateGraph(Agent_State)
-    cheakpointer=InMemorySaver()
+   
     # Agent node
     def agent(state: Agent_State):
 
