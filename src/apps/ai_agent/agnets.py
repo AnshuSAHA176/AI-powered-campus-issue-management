@@ -23,14 +23,13 @@ def get_agent(access_token):
         domain : str
 
     # Create tool
-    complaint_list = agent_tool(
-        access_token=access_token
-    )
+    (list_my_complaints, get_complaint_details) = agent_tool(
+    access_token=access_token
+)
 
-    # Bind tool to LLM
-    model_with_tool = model.bind_tools(
-        [complaint_list]
-    )
+    tools = [list_my_complaints, get_complaint_details]
+
+    model_with_tool = model.bind_tools(tools)
 
     # Graph
     graph_builder = StateGraph(Agent_State)
@@ -92,6 +91,7 @@ def get_agent(access_token):
     graph_builder.add_node("domain_guard", domain_classifyer)
     graph_builder.add_node("agent", agent)
     graph_builder.add_node("reject", reject_off_topic)
+    graph_builder.add_node("tools", ToolNode(tools))
 
     graph_builder.add_edge(START, "domain_guard")
 
@@ -109,7 +109,6 @@ def get_agent(access_token):
         tools_condition,
     )
 
-    graph_builder.add_node("tools", ToolNode([complaint_list]))
 
     graph_builder.add_edge("tools", "agent")
     graph_builder.add_edge("reject", END)

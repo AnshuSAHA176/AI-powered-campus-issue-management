@@ -16,4 +16,11 @@ class Services():
             headers=self._headers(),)
         response.raise_for_status()
         return response.json()
+
+    def compliant_details(self,complaint_id):
+        response=requests.get( f"{self.base_url}complaints/{complaint_id}/",
+                    headers=self._headers(),)
+        response.raise_for_status()
+        return response.json()
+
     
