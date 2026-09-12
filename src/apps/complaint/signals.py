@@ -63,6 +63,7 @@ def update_officer_work_status(sender, instance, **kwargs):
 @receiver([post_delete,post_save],sender=Complaint)
 def invalidate_dashboard_cache(sender, instance, **kwargs):
      cache.delete(key=f'dashbord:{instance.reporter_id}')
+     cache.delete(key=f"officer_dashboard {instance.assigned_officer_id}")
 
 
 @receiver(post_save, sender=Complaint)

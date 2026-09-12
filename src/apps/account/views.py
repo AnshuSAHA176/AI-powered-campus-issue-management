@@ -141,6 +141,13 @@ class OfficerDashbordView(APIView):
     authentication_classes=[JWTAuthentication]
     def get(self,request):
 
+        cache_key=f"officer_dashboard {request.user.id}"
+       
+        cache_data=cache.get(cache_key)
+        if cache_data is not None:
+           
+            return  Response(cache_data)
+
         ACTIVE_STATUSES = [
             Complaint.Status.ASSIGNED,
             Complaint.Status.ACCEPTED,
@@ -208,36 +215,42 @@ class OfficerDashbordView(APIView):
             )
         resolved_this_week = complaint.filter(Q(created_at__gte=week_start)&Q(status=Complaint.Status.RESOLVED)).count()
         resolved_this_month = complaint.filter(Q(created_at__gte=month_start)&Q(status=Complaint.Status.RESOLVED)).count()
+        data= {
+            "summary": {
+                "total_assigned":  summery['total_assigned'],
+                "active": summery['active'],
+                "pending": summery['pending'],
+                "in_progress": summery['in_progress'],
+                "inspection": summery['inspection'],
+                "resolved":  summery['resolved'],
+                "closed":  summery['closed'],
+                "urgent": summery['urgent'],
+                "critical": summery['critical']
+            },
+        
+            "issues_by_status": issues_by_status,
+        
+            "issues_by_priority": issues_by_priority,
+        
+            "issues_by_category": issues_by_category,
+        
+            "needs_attention":ComplaintTitleSerializer(needs_attention,many=True).data,
+        
+            "recent_complaints": ComplaintTitleSerializer(recent_complaints,many=True).data,
+        
+            "performance": {
+                "resolved_this_week": resolved_this_week,
+                "resolved_this_month": resolved_this_month
+            }
+        }
 
+        cache.set(
+            cache_key,
+            data,
+            timeout=60*15
+        )
+        print('cache set')
 
 
         return Response(
-            {
-    "summary": {
-        "total_assigned":  summery['total_assigned'],
-        "active": summery['active'],
-        "pending": summery['pending'],
-        "in_progress": summery['in_progress'],
-        "inspection": summery['inspection'],
-        "resolved":  summery['resolved'],
-        "closed":  summery['closed'],
-        "urgent": summery['urgent'],
-        "critical": summery['critical']
-    },
-
-    "issues_by_status": issues_by_status,
-
-    "issues_by_priority": issues_by_priority,
-
-    "issues_by_category": issues_by_category,
-
-    "needs_attention":ComplaintTitleSerializer(needs_attention,many=True).data,
-
-    "recent_complaints": ComplaintTitleSerializer(recent_complaints,many=True).data,
-
-    "performance": {
-        "resolved_this_week": resolved_this_week,
-        "resolved_this_month": resolved_this_month
-    }
-}
-        )
+                 )
