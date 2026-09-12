@@ -22,6 +22,7 @@ from rest_framework.filters import SearchFilter,OrderingFilter
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
+from django.db.models import Prefetch
 
 class IsComplaintOwner(BasePermission):
      def has_permission(self, request, view):
@@ -127,7 +128,13 @@ class SimilarCompliants(APIView):
      permission_classes=[IsAuthenticated]
      authentication_classes=[JWTAuthentication]
      def get(self,request,compliant_id):
-          compliant = Complaint.objects.filter(complaint_id=compliant_id).prefetch_related('similar_complaints').first()
+          compliant = (Complaint.objects.filter(complaint_id=compliant_id).
+                       prefetch_related(Prefetch('similar_complaints',queryset=
+                                        ComplaintSimilarity.objects.select_related(
+                        'similar_complaint'
+                    ))
+
+                    ).first())
 
           serializer = SemilarCompliantSerializer(compliant.similar_complaints,many=True)
 
