@@ -23,6 +23,7 @@ from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
 from django.db.models import Prefetch
+from rest_framework.throttling import ScopedRateThrottle
 
 class IsComplaintOwner(BasePermission):
      def has_permission(self, request, view):
@@ -55,11 +56,12 @@ class ComplaintCreateView(generics.ListCreateAPIView):
     pagination_class.page_size=3
     pagination_class.page_size_query_param="page_size"
     pagination_class.max_page_size=5
-
+    throttle_classes = [ScopedRateThrottle]
     filter_backends=[DjangoFilterBackend,SearchFilter,OrderingFilter]
 
     def get_serializer_class(self):
         if self.request.method == "POST":
+                
                 return ComplainCreateSerializer
         
         return ComplaintTitleSerializer
@@ -67,8 +69,14 @@ class ComplaintCreateView(generics.ListCreateAPIView):
          return Complaint.objects.filter(reporter=self.request.user).prefetch_related('images')
     def perform_create(self, serializer):
          return serializer.save(reporter=self.request.user)
+    def get_throttles(self):
+     if self.request.method == "POST":
+          self.throttle_scope = "complaint_create"
+     else:
+          self.throttle_scope = "complaint"
 
-
+     return super().get_throttles()
+   
 
 
 
