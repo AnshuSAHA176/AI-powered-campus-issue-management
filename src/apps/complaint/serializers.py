@@ -329,7 +329,17 @@ class ComplaintOwnerUpdateSerializer(serializers.ModelSerializer):
         return instance
 
 
-
+ALLOWED_TRANSITIONS = {
+    "pending": ["assigned", "rejected"],
+    "assigned": ["accepted", "rejected"],
+    "accepted": ["inspection", "in_progress"],
+    "inspection": ["in_progress"],
+    "in_progress": ["resolved"],
+    "resolved": ["closed", "reopened"],
+    "closed": [],
+    "rejected": [],
+    "reopened": ["assigned"],
+}
 
 
 class CompliantAssisgedOfficerSerializer(serializers.ModelSerializer):
@@ -340,13 +350,30 @@ class CompliantAssisgedOfficerSerializer(serializers.ModelSerializer):
                'resolution_note'
           ]
      def validate(self, attrs):
+          compliant_status=self.instance.status
           if attrs.get("status") == "resolved" and not attrs.get("resolution_note"):
-               raise serializers.ValidationError(
-                    "You must provide resolution_note"
-               )
+                         raise serializers.ValidationError(
+                              "You must provide resolution_note"
+                         )
+          
+          current_status = self.instance.status
+          new_status = attrs.get("status")
 
+          if new_status not in ALLOWED_TRANSITIONS.get(current_status, []):
+                raise serializers.ValidationError({
+                    "status": (
+                        f"Invalid status transition: "
+                        f"'{current_status}' → '{new_status}'. "
+                        f"Allowed transitions: "
+                        f"{', '.join(ALLOWED_TRANSITIONS.get(current_status, [])) or 'none'}."
+                    )
+                })
+          
+                        
+          
           return attrs
      def update(self, instance, validated_data):
+          
           if validated_data.get("status") == Complaint.Status.RESOLVED:
             validated_data["resolved_at"] = timezone.now()
           return super().update(instance, validated_data)
