@@ -58,15 +58,15 @@ def duplicate_compliant_detection(self,complaint_id):
              order_by('distance')[:6]
 
     )
+    if similar:
+        for match in similar:
+            similarity = 1 - match.distance
 
-    for match in similar:
-        similarity = 1 - match.distance
-
-        if similarity >= 0.85:
-            ComplaintSimilarity.objects.create(complaint=complaint,
-                                                similar_complaint=match,
-                                               similarity_score = similarity,
-                                               
-                                               )
+            if similarity >= 0.85:
+                ComplaintSimilarity.objects.create(complaint=complaint,
+                                                    similar_complaint=match,
+                                                similarity_score = similarity,
+                                                
+                                                )
 
 

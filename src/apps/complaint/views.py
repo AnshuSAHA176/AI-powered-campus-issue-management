@@ -81,7 +81,7 @@ class ComplaintCURDView(generics.RetrieveUpdateDestroyAPIView):
      def get_queryset(self):
           user=self.request.user
           if user.role=='student':
-               return Complaint.objects.filter(reporter=user).prefetch_related('images') 
+               return Complaint.objects.filter(reporter=user).prefetch_related('images')
           elif user.role == 'officer':
                return Complaint.objects.filter(assigned_officer=user).prefetch_related('images') 
           return Complaint.objects.prefetch_related('images')

@@ -22,6 +22,7 @@ from ..complaint.serializers import ComplaintTitleSerializer
 from django.utils import timezone
 from datetime import timedelta
 
+
 class IsOfficer(BasePermission):
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role == User.RoleChoices.OFFICER

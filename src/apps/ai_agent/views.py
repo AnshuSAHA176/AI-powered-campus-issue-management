@@ -39,7 +39,7 @@ class AgentView(APIView):
                 },config=config
                 )
                         
-        return Response({"status":result["messages"][-1].content})
+        return Response({"content":result["messages"][-1].content})
 
 
     def _get_token(self, request):
