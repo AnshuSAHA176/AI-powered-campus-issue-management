@@ -249,7 +249,7 @@ def email_send(
         recipients.append(officer_email)
 
     params: resend.Emails.SendParams = {
-        "from": "CivicAI <onboarding@resend.dev>",
+        "from":  "CivicAI <notifications@yourdomain.com>",
         "to": recipients,
         "subject": subject,
         "text": message,
@@ -268,3 +268,5 @@ def email_send(
             exc=exc,
             countdown=5,
         )
+
+    
