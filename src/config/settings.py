@@ -159,7 +159,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'register': '10/min',
         'login': '5/min',
-        'complaint_create': '3/day',
+        'complaint_create': '3/min',
         'complaint': '10/min',
     },
 }

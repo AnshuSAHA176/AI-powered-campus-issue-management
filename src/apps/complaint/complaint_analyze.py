@@ -193,13 +193,11 @@ def ai_analyzer(self,complaint_id)->dict:
         )
         create_embedding.delay(str(complaint.complaint_id))
         duplicate_compliant_detection.delay(str(complaint.complaint_id))
-        email_send.delay(student_email=complaint.reporter.email,
-            officer_email=complaint.assigned_officer.email,
-            subject="Complaint Created",
-            message=(
-                f"Your complaint {complaint.complaint_id} "
-                "has been created"
-            ),)
+        email_send.delay(
+                student_email="anshusahaa62@gmail.com",
+                subject="Complaint Resolved",
+                message="Your complaint CMP-1024 has been resolved."
+            )
         
     except Exception as exc:
         raise self.retry(countdown= 2 ** self.request.retries, exc=exc)

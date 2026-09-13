@@ -47,26 +47,54 @@ def create_embedding(self, complaint_id):
 
 
 
-@shared_task(bind=True)
-def duplicate_compliant_detection(self,complaint_id):
-    complaint = Complaint.objects.get(complaint_id=complaint_id)
-    embedding = complaint.embedding
-    similar=(Complaint.objects.filter(embedding__isnull=False).
-             exclude(id=complaint.id).
+@shared_task(bind=True, max_retries=3)
+def duplicate_compliant_detection(self, complaint_id):
 
-             annotate(distance=CosineDistance('embedding',embedding)).
-             order_by('distance')[:6]
+    try:
+        complaint = Complaint.objects.get(
+            complaint_id=complaint_id
+        )
 
-    )
-    if similar:
+        embedding = complaint.embedding
+
+        if embedding is None:
+            raise ValueError(
+                f"Embedding not available for {complaint_id}"
+            )
+
+        similar = (
+            Complaint.objects
+            .filter(embedding__isnull=False)
+            .exclude(id=complaint.id)
+            .annotate(
+                distance=CosineDistance(
+                    "embedding",
+                    embedding
+                )
+            )
+            .order_by("distance")[:6]
+        )
+
         for match in similar:
+
+            if match.distance is None:
+                continue
+
             similarity = 1 - match.distance
 
             if similarity >= 0.85:
-                ComplaintSimilarity.objects.create(complaint=complaint,
-                                                    similar_complaint=match,
-                                                similarity_score = similarity,
-                                                
-                                                )
+                ComplaintSimilarity.objects.get_or_create(
+                    complaint=complaint,
+                    similar_complaint=match,
+                    defaults={
+                        "similarity_score": similarity
+                    }
+                )
+
+    except Exception as exc:
+        raise self.retry(
+            exc=exc,
+            countdown=4
+        )
 
 
