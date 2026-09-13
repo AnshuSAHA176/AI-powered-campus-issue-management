@@ -12,7 +12,9 @@ from cloudinary.uploader import upload
 from .embedding import create_embedding,duplicate_compliant_detection
 
 from .storage import temp_storage
-
+import os
+import resend
+from resend.exceptions import ResendError
 
 SYSTEM_PROMPT = """
 You are an AI complaint analysis system for a university campus issue-management platform.
@@ -191,6 +193,14 @@ def ai_analyzer(self,complaint_id)->dict:
         )
         create_embedding.delay(str(complaint.complaint_id))
         duplicate_compliant_detection.delay(str(complaint.complaint_id))
+        email_send.delay(student_email=complaint.reporter.email,
+            officer_email=complaint.assigned_officer.email,
+            subject="Complaint Created",
+            message=(
+                f"Your complaint {complaint.complaint_id} "
+                "has been created"
+            ),)
+        
     except Exception as exc:
         raise self.retry(countdown= 2 ** self.request.retries, exc=exc)
 
@@ -218,4 +228,45 @@ def images_process(self, complaint_id, temp_paths):
 def after_complaint_created(complaint_id, paths):
     ai_analyzer.delay(complaint_id)
     images_process.delay(complaint_id, paths)
-    
+
+
+
+#email send
+
+
+resend.api_key = os.environ["RESEND_API_KEY"]
+
+
+@shared_task(bind=True, max_retries=3)
+def email_send(
+    self,
+    student_email,
+    subject,
+    message,
+    officer_email=None,
+):
+    recipients = [student_email]
+
+    if officer_email:
+        recipients.append(officer_email)
+
+    params: resend.Emails.SendParams = {
+        "from": "CivicAI <onboarding@resend.dev>",
+        "to": recipients,
+        "subject": subject,
+        "text": message,
+    }
+
+    try:
+        response = resend.Emails.send(params)
+
+        return {
+            "success": True,
+            "email_id": response.get("id"),
+        }
+
+    except ResendError as exc:
+        raise self.retry(
+            exc=exc,
+            countdown=5,
+        )
